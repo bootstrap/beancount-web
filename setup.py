@@ -1,4 +1,14 @@
+import os
+from os import path
+
 from setuptools import setup
+
+
+# Explicitly list the scripts to install.
+install_scripts = [path.join('bin', x) for x in """
+beancount-web
+beancount-urlscheme
+""".split() if x and not x.startswith('#')]
 
 setup(name='beancount-web',
       version='0.1.0a1',
@@ -8,7 +18,7 @@ setup(name='beancount-web',
       author_email='dominik@aumayr.name',
       license='MIT',
       packages=['beancount_web'],
-      scripts=['scripts/beancount-web'],
+      scripts=install_scripts,
       install_requires=[
             'beancount',
             'beancount-pygments-lexer',

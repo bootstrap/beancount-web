@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+import argparse
+import platform
+import configparser
+from subprocess import call
+from pkg_resources import Requirement, resource_filename
+
+"""
+Manage the Beancount URL scheme "beancount://".
+"""
+
+def main(arguments):
+    settings_path = resource_filename(Requirement.parse("beancount_web"), "bin/beancount-urlscheme-settings.ini")
+
+    parser = argparse.ArgumentParser(description=__doc__,
+            formatter_class=argparse.RawDescriptionHelpFormatter)
+
+    subparsers = parser.add_subparsers(dest='subcommand')
+
+    subparser = subparsers.add_parser('register', help='Register the URL scheme in your OS.')
+
+    subparser = subparsers.add_parser('seteditor', help='Set the editor to use when opening beancount//-URLs.')
+    subparser.add_argument('editor_command', type=str, help='Set the command to use, eg. "/usr/local/bin/subl {filename}:{line}". \
+                                                        Specify the full path to the executable. You can use the \
+                                                        format-placeholders {filename} and {line}.')
+
+
+    subparser = subparsers.add_parser('open', help='Open the specified file in the editor.')
+    subparser.add_argument('--line', type=int, default=1, help="The line to go to.")
+    subparser.add_argument('file', type=str, help="The File to open.")
+
+    args = parser.parse_args(arguments)
+
+    if args.subcommand == "register":
+        if platform.system() == "Darwin":
+            command = resource_filename(Requirement.parse("beancount_web"), "bin/mac/BeancountURLSchemeHandler.app/Contents/MacOS/applet")
+            call(command.split(' '))
+        else:
+            print("Not yet implemented for " + platform.system())
+
+    elif args.subcommand == "open":
+        config = configparser.ConfigParser()
+        config.read(settings_path)
+
+        command = config['beancount']['editor'].format(filename=args.file, line=args.line)
+        call(command.split(' '))
+
+    elif args.subcommand == "seteditor":
+        config = configparser.ConfigParser()
+        config.read(settings_path)
+
+        config.set('beancount', 'editor', args.editor_command)
+        config.set('beancount', '; Always use full path (eg. on a Mac it will be executed by /bin/sh, not /bin/bash)', '')
+
+        with open(settings_path, 'w') as configfile:
+            config.write(configfile)
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
