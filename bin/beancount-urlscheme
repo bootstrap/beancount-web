@@ -14,7 +14,7 @@ Manage the Beancount URL scheme "beancount://".
 """
 
 def main(arguments):
-    settings_path = resource_filename(Requirement.parse("beancount_web"), "bin/beancount-urlscheme-settings.ini")
+    settings_path = resource_filename(Requirement.parse("beancount_web"), "bin/beancount-urlscheme-settings.conf")
 
     parser = argparse.ArgumentParser(description=__doc__,
             formatter_class=argparse.RawDescriptionHelpFormatter)
