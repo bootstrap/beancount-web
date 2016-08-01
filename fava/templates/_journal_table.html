@@ -1,0 +1,225 @@
+{% set entry_types = ['open', 'close', 'transaction', 'balance', 'note', 'document', 'pad', 'query', 'custom', 'budget'] %}
+{% set transaction_types = ['cleared', 'pending', 'other'] %}
+{% set default_show_type = {
+    'open':        'open' in config['journal-show'],
+    'close':       'close' in config['journal-show'],
+    'transaction': 'transaction' in config['journal-show'],
+    'balance':     'balance' in config['journal-show'],
+    'note':        'note' in config['journal-show'],
+    'document':    'document' in config['journal-show'],
+    'pad':         'pad' in config['journal-show'],
+    'query':       'query' in config['journal-show'],
+    'custom':      'custom' in config['journal-show'],
+    'budget':      'budget' in config['journal-show'],
+
+    'cleared':     'cleared' in config['journal-show-transaction'],
+    'pending':     'pending' in config['journal-show-transaction'],
+    'other':       'other' in config['journal-show-transaction'],
+
+    'metadata':    'metadata' in config['journal-show'],
+    'legs':        'legs' in config['journal-show'],
+} %}
+{% if request.args.get('show', False) %}
+    {% set show_type = {
+        'open':        'open' in request.args.getlist('show'),
+        'close':       'close' in request.args.getlist('show'),
+        'transaction': 'transaction' in request.args.getlist('show'),
+        'balance':     'balance' in request.args.getlist('show'),
+        'note':        'note' in request.args.getlist('show'),
+        'document':    'document' in request.args.getlist('show'),
+        'pad':         'pad' in request.args.getlist('show'),
+        'query':       'query' in request.args.getlist('show'),
+        'custom':      'custom' in request.args.getlist('show'),
+        'budget':      'budget' in request.args.getlist('show'),
+
+        'cleared':     'cleared' in request.args.getlist('show'),
+        'pending':     'pending' in request.args.getlist('show'),
+        'other':       'other' in request.args.getlist('show'),
+
+        'metadata':     'metadata' in request.args.getlist('show'),
+        'legs':         'legs' in request.args.getlist('show'),
+    } %}
+{% else %}
+    {% set show_type = {
+        'open':        default_show_type['open'],
+        'close':       default_show_type['close'],
+        'transaction': default_show_type['transaction'],
+        'balance':     default_show_type['balance'],
+        'note':        default_show_type['note'],
+        'document':    default_show_type['document'],
+        'pad':         default_show_type['pad'],
+        'query':       default_show_type['query'],
+        'custom':      default_show_type['custom'],
+        'budget':      default_show_type['budget'],
+
+        'cleared':     default_show_type['cleared'],
+        'pending':     default_show_type['pending'],
+        'other':       default_show_type['other'],
+
+        'metadata':     default_show_type['metadata'],
+        'legs':         default_show_type['legs'],
+    } %}
+{% endif %}
+{% set transaction_type_buttons = {
+    'cleared': ('*', _('Cleared Transactions')),
+    'pending': ('!', _('Pending Transactions')),
+    'other':   ('x', _('Other Transactions')),
+}
+%}
+{% if show_tablefilter %}
+<form id="entry-filters" class="wide-form">
+    {% for type in entry_types %}
+        {% if type != 'budget' or api.budgets %}
+            <input type="submit" id="filter-{{ type }}" value="{{ type|capitalize }}" title="{% if show_type[type] %}Hide{% else %}Show{% endif %} {{ type|capitalize }} entries" data-type="{{ type }}" data-selector="li.{{ type }}" data-show-default="{{ default_show_type[type]|lower }}"{% if not show_type[type] %} class="inactive"{% endif %}>
+            {% if type == 'transaction' %}
+                {% for txn_type in transaction_types %}
+                    <input type="submit" id="filter-{{ txn_type }}" value="{{ transaction_type_buttons[txn_type].0 }}" title="{{ transaction_type_buttons[txn_type].1 }}" data-type="{{ txn_type }}" data-selector="li.{{ txn_type }}" data-show-default="{{ default_show_type[txn_type]|lower }}" class="txn-toggle{% if not show_type[txn_type] or not show_type['transaction'] %} inactive{% endif %}">
+                {% endfor %}
+            {% endif %}
+        {% endif %}
+    {% endfor %}
+    <input type="submit" id="toggle-metadata" value="Metadata" title="{% if show_type['metadata'] %}Hide{% else %}Show{% endif %} metadata" data-type="metadata" data-selector="dl.metadata" data-show-default="{{ default_show_type['metadata']|lower }}" {% if not show_type['metadata'] %} class="inactive"{% endif %}>
+    <input type="submit" id="toggle-legs" value="Postings" title="{% if show_type['legs'] %}Hide{% else %}Show{% endif %} legs" data-type="legs" data-selector="li.posting" data-show-default="{{ default_show_type['legs']|lower }}" {% if not show_type['legs'] %} class="inactive"{% endif %}>
+</form>
+{% endif %}
+
+{% set context_url = url_for('context', ehash='REPLACEME') %}
+{% set account_url = url_for('account_with_journal', name='REPLACEME') %}
+{% set tag_url = url_for_current(tag='REPLACEME,'+(g.filters['tag'] or '')) %}
+
+{% macro account_link(name) -%}
+<a href="{{ account_url.replace('REPLACEME', name) }}">{{ name }}</a>
+{%- endmacro %}
+
+{% macro render_inventory(inv) -%}
+{% if inv %}
+    {% for currency, number in inv.items() %}
+        {{ number|format_currency(currency) }} {{ currency }}<br>
+    {% endfor %}
+{% endif %}
+{%- endmacro %}
+
+{% macro render_metadata(metadata, show_metadata) -%}
+{% if metadata %}
+    <dl class="metadata{% if not show_metadata %} hidden{% endif %}">
+        {% for key, value in metadata.items() %}
+            <dt>{{ key }}</dt>
+            <dd>
+                {%- if key == 'statement' %}<a href="{{ url_for('document', file_path=value)  }}">{% endif -%}
+                {{ value }}
+                {%- if key == 'statement' %}</a>{% endif -%}
+            </dd>
+        {% endfor %}
+    </dl>
+{% endif %}
+{%- endmacro %}
+
+<ol id="journal-table" class="journal-table">
+    <li class="head">
+        <p>
+        <span class="datecell">{{ _('Date') }}</span>
+        <span class="flag">{{ _('F') }}</span>
+        <span class="description">{{ _('Narration/Payee') }}</span>
+        <span class="position">{{ _('Position') }}</span>
+        <span class="price">{{ _('Price') }}</span>
+        <span class="cost">{{ _('Cost') }}</span>
+        {% if show_change_and_balance %}
+        <span class="change">{{ _('Change') }}</span>
+        <span class="balance">{{ _('Balance') }}</span>
+        {% endif %}
+        </p>
+    </li>
+{% for entry in journal %}
+    {% set type = entry.meta.type %}
+    <li class="{{ type }} {{ entry.transaction_type }}
+    {%- if not show_type[type] %} hidden{% endif -%}
+    {%- if (entry.transaction_type and not show_type[entry.transaction_type]) %} hidden{% endif -%}
+    {%- if entry.diff_amount %} fail{% endif -%}
+    " title="{{ entry.meta.filename }}:{{ entry.meta.lineno }}">
+        <p>
+        <span class="datecell"><a href="{{ context_url.replace('REPLACEME', entry.hash) }}">{{ entry.date }}</a></span>
+        <span class="flag">{{ entry.flag }}</span>
+        <span class="description">
+        {% if type == 'open' %}
+            Open {{ account_link(entry.account) }}
+        {% elif type == 'close' %}
+            Close {{ account_link(entry.account) }}
+        {% elif type == 'note' %}
+            Note: {{ entry.comment }}
+        {% elif type == 'query' %}
+            Query: <a href="{{ url_for('query', name=entry.name, bql=entry.query_string) }}">{{ entry.name }}</a>
+        {% elif type == 'pad' %}
+            Pad {{ account_link(entry.account) }} from {{ account_link(entry.source_account) }}
+        {% elif type == 'custom' %}
+            Custom <strong>{{ entry.type }}</strong>
+            {% for value in entry['values'] %}
+                &nbsp;
+                {%- if value.dtype|string == "<AccountDummy>" %}{{ account_link(value.value) }}{% endif -%}
+                {%- if value.dtype|string == "<class 'beancount.core.amount.Amount'>" %}<span class="num">{{ value.value.number|format_currency(value.value.currency) }} {{ value.value.currency }}</span>{% endif -%}
+                {%- if value.dtype|string == "<class 'str'>" %}"{{ value.value }}"{% endif -%}
+                {%- if value.dtype|string == "<class 'bool'>" %}{{ value.value }}{% endif -%}
+                {%- if value.dtype|string == "<class 'datetime.date'>" %}{{ value.value }}{% endif -%}
+            {% endfor %}
+        {% elif type == 'budget' %}
+            {%- if entry.period_type == 'daily' %}Daily{% endif %}
+            {%- if entry.period_type == 'weekly' %}Weekly{% endif %}
+            {%- if entry.period_type == 'monthly' %}Monthly{% endif %}
+            {%- if entry.period_type == 'quarterly' %}Quarterly{% endif %}
+            {%- if entry.period_type == 'yearly' %}Yearly{% endif %}
+            budget for {{ account_link(entry.account) }}
+            <span class="budget-value num">{{ entry.value.number|format_currency(entry.value.currency) }} {{ entry.value.currency }}</span>
+        {% elif type == 'document' %}
+            Document for {{ account_link(entry.account) }}: <a href="{{ url_for('document', file_path=entry.filename) }}">{{ entry.filename|basename }}</a>
+        {% elif type == 'balance' %}
+            Balance {{ account_link(entry.account) }}
+            {% if entry.diff_amount %} fails;
+                expected = {{ entry.amount|format_amount }}
+                balance = {{ (entry.amount.number + entry.diff_amount.number)|format_currency(entry.amount.currency) }} {{ entry.amount.currency }}
+                difference = {{ entry.diff_amount|format_amount }}
+            {% else %}
+                has {{ entry.amount }}
+            {% endif %}
+        {% elif type == 'transaction' %}
+            <strong>{{ entry.payee or '' }}</strong>{% if entry.payee and entry.narration %} | {% endif %}{{ entry.narration or '' }}
+            {% for tag in entry.tags %}<a class="tag" href="{{ tag_url.replace('REPLACEME', tag) }}" title="Filter for tag #{{ tag }}"><span>#</span>{{ tag }}</a>{% endfor %}
+        {% endif %}
+        </span>
+        {% if type == 'transaction' %}
+            {% for posting in entry.postings %}
+                <span class="leg-indicator leg-{{ posting.posting_type }}"></span>
+            {% endfor %}
+        {% endif %}
+        {% if show_change_and_balance %}
+            <span class="change num">{{ render_inventory(entry.change) }}</span>
+            <span class="balance num">{{ render_inventory(entry.balance) }}</span>
+        </p>
+        {% endif %}
+        {{ render_metadata(entry.metadata, show_type['metadata']) }}
+        {% if entry.postings %}
+        <ul>
+        {% for posting in entry.postings %}
+        <li class="posting {{ posting.posting_type }}{%- if not show_type['legs'] %} hidden{% endif -%}">
+            <p>
+                <span class="datecell"></span>
+                <span class="flag"> </span>
+                <span class="description">{{ account_link(posting.account) }}</span>
+                {# We want the output these amounts with the same precision as in the input file.
+                   For computed values this might give a lot of digits, so format the price using the DisplayContext for now.#}
+                <span class="position num">{{ posting.units or '' }}</span>
+                <span class="price num">{{ posting.price|format_amount }}</span>
+                <span class="cost num">{{ posting.cost.number }} {{ posting.cost.currency }}
+                    {{- ', {}'.format(posting.cost.date) if posting.cost.date else '' }}
+                    {{- ', "{}"'.format(posting.cost.label) if posting.cost.label else '' }}</span>
+                {% if show_change_and_balance %}
+                <span class="change num"></span>
+                <span class="balance num"></span>
+                {% endif %}
+            </p>
+            {{ render_metadata(posting.metadata, show_type['metadata']) }}
+        </li>
+        {% endfor %}
+        </ul>
+        {% endif %}
+    </li>
+{% endfor %}
+</ol>

@@ -1,0 +1,8 @@
+{% extends "_layout.html" %}
+{% set active_page = 'journal' %}
+
+{% block content %}
+    {% with journal = api.journal(), show_tablefilter=True  %}
+        {% include "_journal_table.html" %}
+    {% endwith %}
+{% endblock %}

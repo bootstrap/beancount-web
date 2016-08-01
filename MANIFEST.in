@@ -1,10 +1,15 @@
-include CHANGES.md LICENSE
+include CHANGES.md LICENSE README.rst RELEASENOTES.md AUTHORS.md
 
-recursive-include beancount_web/templates *
-recursive-include beancount_web/static *
-include beancount_web/default-settings.conf
-prune beancount_web/static/sass/.sass-cache
+recursive-include fava/docs *
+recursive-include fava/templates *
+recursive-include fava/static/gen *
+recursive-include fava/static/images *
+recursive-exclude fava/static/javascript *
+recursive-exclude fava/static/sass *
+recursive-exclude fava/static/node_modules *
+exclude fava/static/package.json
+exclude fava/static/webpack.config.js
+include fava/default-settings.conf
 
 # Be sure this is last
 global-exclude *.pyc .gitignore *.orig
-

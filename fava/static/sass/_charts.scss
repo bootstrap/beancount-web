@@ -1,0 +1,141 @@
+.chart-labels {
+    color: rgba($color_text, 0.2);
+    font-size: 1em;
+    line-height: 14px;
+    text-align: center;
+    margin-bottom: 20px;
+    position: relative;
+    margin-top: 8px;
+
+    label {
+        color: lighten($color_text, 40);
+        padding: 0 5px;
+
+        &:hover {
+            color: lighten($color_text, 20);
+            cursor: pointer;
+        }
+
+        &.selected { color: lighten($color_text, 20); }
+    }
+
+    label+label { border-left: 1px solid rgba($color_text, 0.4) }
+}
+
+.chart-container {
+    position: relative;
+    min-height: 100px;
+}
+
+.chart > p,
+.loading {
+    padding-top: 30px;
+    text-align: center;
+    font-style: italic;
+    color: lighten($color_text, 60);
+}
+
+.charts svg {
+    text {
+        fill: lighten($color_text, 10);
+    }
+
+    .line {
+        fill: none;
+        stroke-width: 2px;
+    }
+
+    .axis path,
+    .axis line {
+        fill: none;
+        stroke: #999;
+        shape-rendering: crispEdges;
+    }
+    .y.axis line {
+        stroke: #999;
+        stroke-dasharray: 2,2;
+    }
+}
+
+
+.voronoi path {
+    pointer-events: all;
+    fill: none;
+}
+
+.treemap {
+    shape-rendering: crispEdges;
+
+    rect {
+        stroke: #fff;
+        stroke-width: 2px;
+    }
+
+    text {
+        cursor: pointer;
+    }
+}
+
+.sunburst {
+    text.account {
+        font-weight: 700;
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    text.balance {
+        font-family: $font_family_monospaced;
+        font-size: 14px;
+    }
+
+    path {
+        cursor: pointer;
+    }
+}
+
+.barchart {
+    .group {
+        cursor: pointer;
+    }
+
+    .group-box {
+        opacity: 0;
+    }
+    .group:hover .group-box {
+        opacity: 0.1;
+    }
+}
+
+#tooltip {
+    font-family: $font_family_monospaced;
+    position: absolute;
+    z-index: 12;
+    text-align: center;
+    min-width: 5em;
+    padding: .5em;
+    opacity: 0;
+    transform: translate(-50%, -100%);
+    pointer-events: none;
+    background: darken($color_background, 5);
+    border: 1px solid darken($color_background, 20);
+    box-shadow: 0px 0px 5px darken($color_background, 6);
+
+    &:before {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        margin-left: -15px;
+        border: 15px solid transparent;
+        border-top-color: darken($color_background, 20);
+    }
+
+    em {
+        font-family: $font_family;
+        display: block;
+        margin-top: 5px;
+        color: darken($color_background, 50);
+    }
+}

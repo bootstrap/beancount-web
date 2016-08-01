@@ -1,0 +1,87 @@
+{% set infotext = {
+    'green':  "The last entry is a passing balance check.",
+    'red':    "The last entry is a failing balance check.",
+    'yellow': "The last entry is not a balance check.",
+    'gray':   "This account has not been updated in a while.",
+} %}
+
+{% macro indicator(account) %}
+{% set status=api.is_account_uptodate(account) %}
+{% if status %}
+    <span class="status-indicator status-{{ status }}" title="{{ infotext[status] }}
+
+Click to copy the balance directives to the clipboard:
+
+{{ balance_directive(account) }}" data-clipboard-text="{{ balance_directive(account) }}"></span>
+{% endif %}
+{% endmacro %}
+
+{% macro last_account_activity(account_name) %}
+{% set last_account_activity_in_days=api.last_account_activity_in_days(account_name) %}
+{% if last_account_activity_in_days > config['uptodate-indicator-grey-lookback-days'] %}
+    <span class="status-indicator status-gray" title="{{ infotext['gray'] }} ({{ last_account_activity_in_days }} days ago)"></span>
+{% endif %}
+{% endmacro %}
+
+{% macro balance_directive(account) %}
+{% for position in api.inventory(account) %}
+{{ today }} balance {{ account.ljust(28) }} {% with num=position.units.number|string %}{{ num.rjust(15) }}{% endwith %} {{ position.units.currency }}
+{% endfor %}
+{% endmacro %}
+
+{% macro account_name(account_name, last_segment=False) %}
+<a href="{{ url_for('account_with_journal', name=account_name) }}" class="account">
+    {{ account_name|last_segment if last_segment else account_name }}
+</a>
+
+{% if account_name and account_name|uptodate_eligible %}
+    {{ indicator(account_name) }}
+    {{ last_account_activity(account_name) }}
+{% endif %}
+{% endmacro %}
+
+{% macro account_name_header(account_name) %}
+<span class="droptarget" data-account-name="{{ account_name }}">
+    {% set levels = account_name|account_level %}
+    {% for level in range(0, levels) %}
+        {% set subaccount_name = account_name.rsplit(':', maxsplit=levels-loop.index)[0] %}
+        {% set subaccount_part = account_name.split(':')[level] %}
+
+        {%- if loop.last -%}
+            {{ subaccount_part }}
+        {%- else -%}
+            <a href="{{ url_for('account_with_journal', name=subaccount_name) }}" title="{{ subaccount_name }}">{{ subaccount_part }}</a><span class="separator">:</span>
+        {%- endif -%}
+    {% endfor %}
+
+{% if account_name and account_name|uptodate_eligible %}
+    {{ indicator(account_name) }}
+    {{ last_account_activity(account_name) }}
+{% endif %}
+
+    {% set activity = api.statistics(account_name=account_name) %}
+    {% if activity %}
+    <span class="last-activity">
+        (Last entry: <a href="{{ url_for_source(file_path=activity.last_posting_filename, line=activity.last_posting_lineno) }}" title="Show source {{ activity.last_posting_filename }}:{{ activity.last_posting_lineno }}">{{ activity.last_posting_date }}</a>)
+    </span>
+    {% endif %}
+</span>
+{% endmacro %}
+
+{% macro balance_with_budget(currency, number, budget=None, show_currency=False, css_class="balance") %}
+<span class="{{ css_class }}">
+    {% if number %}
+        {% if budget %}
+            {% set budget_curr = budget[currency] if currency in budget else None %}
+            {% if budget_curr != None %}
+                <span class="budget budget-{% if budget_curr > 0.0 %}positive{% else %}{% if budget_curr < 0.0 %}negative{% else %}zero{% endif %}{% endif %}">
+                    ({{ budget_curr|format_currency(currency, show_if_zero=True) }})
+                </span>
+            {% else %}
+                <span class="budget no-budget"></span>
+            {% endif %}
+        {% endif %}
+        <span class="number">{{ number|format_currency(currency) }}{% if show_currency %} {{ currency }}{% endif %}</span>
+    {% endif %}
+</span>
+{% endmacro %}

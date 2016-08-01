@@ -1,0 +1,28 @@
+{% extends "_layout.html" %}
+{% set active_page = 'context' %}
+{% set page_title = "Context: " + ehash %}
+
+{% block javascript %}
+    {% include "javascript/_editor.html" %}
+{% endblock %}
+
+{% block content %}
+{% set context = api.context(ehash) %}
+    {% if context %}
+    <dl>
+        <dt>{{ _('Hash:') }}</dt>
+        <dd><code>{{ context.hash }}</code></dd>
+        <dt>{{ _('Location:') }}</dt>
+        <dd><code><a href="{{ url_for_source(file_path=context.filename, line=context.lineno) }}" title="{{ _('Show source %(file)s:%(lineno)s', file=context.filename, lineno=context.lineno) }}">{{ context.filename }}:{{ context.lineno }}</a></code></dd>
+    </dl>
+    <textarea class="editor editor-readonly" readonly>{{ context.context|safe }}</textarea>
+    <h3>{{ _('Journal Entry') }}</h3>
+    {% with journal=context.journal %}
+        {% include "_journal_table.html" %}
+    {% endwith %}
+    {% else %}
+    <p>
+    {{ _('No entry matches the given hash.') }}
+    </p>
+    {% endif %}
+{% endblock %}

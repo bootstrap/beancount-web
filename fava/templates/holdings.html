@@ -1,0 +1,46 @@
+{% extends "_layout.html" %}
+{% set active_page = 'holdings' %}
+{% import 'macros/_account_macros.html' as account_macros with context %}
+
+{% macro num_cell(value, currency) -%}
+<td class="num" data-sort-value="{{ value }}">{{ value|format_currency(currency) }}</td>
+{%- endmacro %}
+
+{% block content %}
+    {% set holdings = api.holdings(aggregation_key) %}
+    <div class="headerline">
+        <h3>{% if aggregation_key %}<a href="{{ url_for('report', report_name='holdings') }}">{{ _('Holdings') }}</a>{% else %}{{ _('Holdings') }}{% endif %}</h3>
+        {% for key, label in [('account', _('Account')), ('currency', _('Currency')), ('cost_currency', _('Cost currency'))] %}
+        <h3>{% if not (aggregation_key == key) %}<a href="{{ url_for('holdings_by', aggregation_key=key) }}">{{ _('Holdings by') }} {{ label }}</a>{% else %}{{ _('Holdings by') }} {{ label }}{% endif %}</h3>
+        {% endfor %}
+    </div>
+
+    <table class="holdings sortable">
+        <thead>
+            <tr>
+                <th data-sort="string" data-sort-default="desc" class="sorting-asc">{{ _('Account') }}</th>
+                <th data-sort="float" data-sort-default="desc">{{ _('Units') }}</th>
+                <th data-sort="string">{{ _('Currency') }}</th>
+                <th data-sort="string">{{ _('Cost currency') }}</th>
+                <th data-sort="float" data-sort-default="desc">{{ _('Average Cost') }}</th>
+                <th data-sort="float" data-sort-default="desc">{{ _('Price') }}</th>
+                <th data-sort="float" data-sort-default="desc">{{ _('Book Value') }}</th>
+                <th data-sort="float" data-sort-default="desc">{{ _('Market Value') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for holding in holdings %}
+            <tr>
+                <td>{{ account_macros.account_name(holding.account) }}</td>
+                {{ num_cell(holding.number, holding.currency) }}
+                <td>{{ holding.currency}}</td>
+                <td>{{ holding.cost_currency }}</td>
+                {{ num_cell(holding.cost_number, holding.cost_currency) }}
+                {{ num_cell(holding.price_number, holding.cost_currency) }}
+                {{ num_cell(holding.book_value, holding.cost_currency) }}
+                {{ num_cell(holding.market_value, holding.cost_currency) }}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "_layout.html" %}
+{% set active_page = 'errors' %}
+{% set show_filters = False %}
+
+{% set page_title = _('Errors') %}
+
+{% block content %}
+{% if api.errors %}
+    <table class="errors sortable">
+        <thead>
+            <tr>
+                <th data-sort="string" class="sorting-asc">{{ _('File') }}</th>
+                <th data-sort="int">{{ _('Line') }}</th>
+                <th data-sort="string">{{ _('Error') }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for error in api.errors %}
+            <tr>
+                {% with link=url_for_source(file_path=error.source['filename'], line=error.source['lineno']) %}
+                <td><a class="source" href="{{ link }}" title="{{ _('Show source %(file)s:%(lineno)s', file=error.source['filename'], lineno=error.source['lineno']) }}">{{ error.source['filename'] }}</a></td>
+                <td class="num"><a class="source" href="{{ link }}" title="{{ _('Show source %(file)s:%(lineno)s', file=error.source['filename'], lineno=error.source['lineno']) }}">{{ error.source['lineno'] }}</a></td>
+                <td>{{ error.message }}</td>
+                {% endwith %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>
+        {{ _('No errors.') }}
+    </p>
+{% endif %}
+{% endblock %}

@@ -1,3 +1,6 @@
+.coverage
+.tox
+docs/_build
 *.pyc
 /dist/
 /build/
@@ -5,6 +8,10 @@
 *sass-cache*/
 *.css.map
 TODO.md
-beancount_web/static/gen/
-*.webassets-cache*/
-beancount_web/static/stylesheets/packed*.js
+fava/static/gen/
+TODO
+
+npm-debug.log
+node_modules
+.cache/
+fava/translations/messages.pot

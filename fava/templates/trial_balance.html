@@ -1,0 +1,24 @@
+{% extends "_layout.html" %}
+{% set active_page = 'trial_balance' %}
+
+{% import "_charts.html" as charts with context %}
+
+{% block content %}
+
+    {{ charts.skeleton(hide_interval_filter=True) }}
+
+    {% for base_account in ['expenses', 'income', 'assets', 'equity', 'liabilities'] %}
+        {{ charts.treemap(api.options['name_{}'.format(base_account)]) }}
+    {% endfor %}
+
+    {% for base_account in ['expenses', 'income', 'assets', 'equity', 'liabilities'] %}
+        {{ charts.sunburst(api.options['name_{}'.format(base_account)]) }}
+    {% endfor %}
+
+    <div class="halfleft">
+    {% with table_title=None, real_accounts=api.trial_balance(), totals=False %}
+        {% include "_tree_table.html" %}
+    {% endwith %}
+    </div>
+
+{% endblock %}
