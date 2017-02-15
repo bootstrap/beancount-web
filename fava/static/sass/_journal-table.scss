@@ -1,213 +1,252 @@
-// Journal table
+ // Journal table
 
-#entry-filters {
-    input {
-        background-color: $color_header;
-        color: #eee;
-        border: none;
-        padding: 6px 8px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
-        outline: 0;
+.journal-entry-filters {
+  button {
+    margin-bottom: 5px;
+  }
 
-        &:hover {
-            background-color: darken($color_header, 4);
-            cursor: pointer;
-        }
+  .small {
+    margin-left: -2px;
+  }
 
-        &:active {
-            background-color: darken($color_header, 8);
-        }
-    }
-
-    input.inactive {
-        background: darken($color_background, 5);
-        color: lighten($color_text, 30);
-
-        &:hover {
-            background-color: darken($color_background, 9);
-        }
-
-        &:active {
-            background: darken($color_background, 14);
-        }
-    }
-
-    input.txn-toggle {
-        margin-left: -2px;
-    }
-
-    input#toggle-metadata {
-        margin-left: 9px;
-    }
+  [data-type='metadata'] {
+    margin-left: 9px;
+  }
 }
 
-ol.tree-table,
-ol.journal-table {
-    p, li, ul, ol {
-        padding: 0;
-        margin: 0;
+.tree-table,
+.journal-table {
+  p,
+  li,
+  ul,
+  ol {
+    margin: 0;
+    padding: 0;
+  }
+
+  p {
+    display: flex;
+
+    > span {
+      flex-shrink: 0;
+      margin: 0;
+      padding: 2px 3px;
+    }
+  }
+
+  a {
+    text-decoration: none;
+  }
+
+  .num {
+    color: $color-text;
+    font-family: $font-family-monospaced;
+    text-align: right;
+  }
+
+  %head {
+    background-color: $color-table-header-background;
+    color: $color-table-header-text;
+    font-weight: 500;
+  }
+
+  .head {
+    p > span {
+      @extend %head;
+      background-color: $color-table-header-background;
+      padding: 3px 5px;
     }
 
-    p {
-        display: flex;
+    .num {
+      @extend %head;
+      font-family: $font-family;
+      text-align: inherit;
+    }
+  }
+
+  .totals {
+    p > span {
+      @extend %head;
+    }
+  }
+}
+
+.journal-table {
+  p,
+  dl {
+    border-bottom: thin solid $color-table-border;
+  }
+
+  // Journal entry types (li)
+  .open { background-color: $color-journal-entry-open; }
+  .close { background-color: $color-journal-entry-close; }
+  .query { background-color: $color-journal-entry-note; }
+  .pad { background-color: $color-journal-entry-pad; }
+  .document { background-color: $color-journal-entry-document; }
+
+  .note {
+    background-color: $color-journal-entry-note;
+
+    label {
+      color: darken($color-journal-entry-note, 55%);
+    }
+  }
+
+  .balance {
+    background-color: $color-journal-entry-balance;
+
+    &.fail { background-color: $color-journal-entry-txn-pending; }
+  }
+
+  .other { background-color: $color-journal-entry-txn-other; }
+  .pending { background-color: $color-journal-entry-txn-pending; }
+
+  .postings {
+    background-color: $color-journal-entry-open;
+    font-size: .9em;
+    opacity: .8;
+
+    .num { line-height: 16px; }
+
+    .pending { background-color: $color-journal-entry-postingwarning; }
+  }
+
+  .custom { background-color: $color-journal-entry-custom; }
+  .budget { background-color: $color-journal-entry-budget; }
+
+  .transaction { cursor: pointer; }
+
+  // Metadata
+  dl {
+    font-size: .9em;
+    margin: 0;
+    padding: 2px 0 2px 8em;
+
+    dt,
+    dd {
+      margin-bottom: 0;
+    }
+
+    dt {
+      color: $color-journal-metadata;
+      font-style: italic;
+      font-weight: normal;
+      margin-right: 10px;
+      min-width: 80px;
+      width: auto;
+    }
+
+    dd {
+      margin-left: 80px;
     }
 
     a {
-        text-decoration: none;
+      font-weight: normal;
+      &:hover { text-decoration: underline; }
+    }
+  }
+
+  // Table cells (span)
+  .num {
+    border-left: 1px solid $color-table-border;
+    width: 9em;
+  }
+
+  .datecell {
+    padding-right: 0;
+    width: 6em;
+  }
+
+  .flag {
+    text-align: center;
+    width: 1.6em;
+  }
+
+  .change { font-weight: 500; }
+
+  .description {
+    flex: 1;
+
+    .account-link {
+      color: transparentize($color-links, .15);
+
+      span {
+        color: $color-links;
+      }
     }
 
-    p > span {
-        padding: 1px 5px;
-        margin: 0;
-        flex-shrink: 0;
-
-        &.num {
-            font: 1em $font_family_monospaced;
-            color: $color_text;
-            text-align: right;
-        }
+    .separator {
+      background-color: $color-text-lighter;
+      display: inline-block;
+      height: 4px;
+      margin: 0 2px 2px 6px;
+      width: 4px;
     }
 
-    .head {
-        color: $color_journaltable_header;
-        font-weight: 500;
-        background: $color_treetable_header_bg;
-
-        span {
-            border: none;
-
-            &.flag,
-            &.description {
-                border-left: 1px solid $color_journaltable_border;
-            }
-        }
-    }
-}
-
-ol.journal-table {
-    p { border-bottom: thin solid $color_journaltable_border; }
-
-    li {
-        // Journal entry types
-        &.open              { background-color: $color_journalentry_open;            }
-        &.close             { background-color: $color_journalentry_close;           }
-        &.note              { background-color: $color_journalentry_note;            }
-        &.query             { background-color: $color_journalentry_note;            }
-        &.pad               { background-color: $color_journalentry_pad;             }
-        &.document          { background-color: $color_journalentry_document;        }
-        &.balance           { background-color: $color_journalentry_balance;         }
-        &.balance.fail      { background-color: $color_journalentry_pending;         }
-
-        &.other             { background-color: $color_journalentry_padding;         }
-        &.pending           { background-color: $color_journalentry_pending;         }
-
-        &.posting           { background-color: $color_journalentry_open;            }
-        &.posting.pending   { background-color: $color_journalentry_postingwarning;  }
-        &.custom            { background-color: $color_journalentry_custom;          }
-        &.budget            { background-color: $color_journalentry_budget;          }
-
-        &.document a:nth-child(1) { font-weight: normal; }
-
-        &.posting {
-            font-size: 0.9em;
-            opacity: 0.6;
-
-            span.num { line-height: 16px; }
-        }
-
-        &.transaction { cursor: pointer; }
-
-
-        dl.metadata {
-            padding: 3px 0 3px 8rem;
-            margin: 0;
-            font-size: 0.9em;
-
-            dt, dd {
-                margin-bottom:3px;
-            }
-
-            dt {
-                width: auto;
-                min-width: 60px;
-                margin-right: 10px;
-                font-weight: normal;
-                font-style: italic;
-                color: $color_journaltable_metadata;
-            }
-
-            dd {
-                margin-left: 70px;
-
-                a {
-                    font-weight: normal;
-
-                    &:hover { text-decoration: underline; }
-                }
-            }
-        }
+    .tag,
+    .link {
+      display: inline-block;
+      margin-right: 8px;
     }
 
-    span {
-        &.position,
-        &.price,
-        &.cost,
-        &.change,
-        &.balance {
-            width: 9rem;
-            border-left: 1px solid $color_journaltable_border;
-        }
+    .tag { color: $color-journal-tag; }
+    .link { color: $color-journal-link; }
+  }
 
-        &.datecell { width: 6rem; padding-right: 0; }
-        &.flag { width: 1.6rem; text-align: center; }
-        &.change { font-weight: 500; }
-
-        &.description {
-            flex: 1;
-
-            span.links {
-                margin-left: 1em;
-                margin-right: 1em;
-                text-decoration: none;
-            }
-
-            a {
-                font-weight: 500;
-
-                &.tag {
-                    font-weight: normal;
-                    display: inline-block;
-                    margin-right: 8px;
-                    color: $color_journaltable_tag;
-
-                    &:hover {
-                        color: darken($color_journaltable_tag, 30%);
-                        text-decoration: underline;
-                    }
-                }
-            }
-        }
-
-        &.leg-indicator {
-            display: inline-block;
-            height: 6px;
-            width: 6px;
-            background: #C1D0D9;
-            border-radius: 3px;
-            padding: 0;
-            margin-right: 4px;
-            margin-top: 8px;
-
-            &:last-child { margin-right: 10px; }
-
-            &.leg-pending { background-color: $color_journalentry_postingwarning; }
-        }
-
-        &.budget-value {
-            float: right;
-            font-weight: 500;
-        }
+  a {
+    &:hover {
+      filter: brightness(80%);
     }
+  }
+
+  .document { // sass-lint:disable-line no-mergeable-selectors
+    .account-link {
+      color: darken($color-journal-tag-document, 20%);
+
+      span {
+        color: darken($color-journal-tag-document, 25%);
+      }
+    }
+
+    .filename {
+      margin-left: .3em;
+    }
+
+    .tag { color: $color-journal-tag-document; }
+    .link { color: $color-journal-link-document; }
+  }
+
+  .posting-indicator {
+    background-color: $color-journal-indicator;
+    border-radius: 3px;
+    display: inline-block;
+    height: 6px;
+    margin-right: 4px;
+    margin-top: 10px;
+    padding: 0;
+    width: 6px;
+
+    &:last-child { margin-right: 10px; }
+    &.pending { background-color: $color-journal-entry-postingwarning; }
+  }
+
+  .metadata-indicator {
+    background-color: $color-journal-indicator;
+    border-radius: 20px;
+    color: darken($color-journal-indicator, 35%);
+    font-size: 10px;
+    height: 16px;
+    line-height: 16px;
+    margin-right: 4px;
+    margin-top: 5px;
+    padding: 0 8px;
+    text-transform: lowercase;
+
+    &:last-child { margin-right: 10px; }
+  }
+
+  .budget-value {
+    float: right;
+    font-weight: 500;
+  }
 }

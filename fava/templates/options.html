@@ -1,47 +1,37 @@
 {% extends "_layout.html" %}
 {% set active_page = 'options' %}
-{% set show_filters = False %}
 
 {% block content %}
-    <h2>{{ _('fava: settings') }}</h2>
-    <dl>
-        <dt>{{ _('User settings:') }}</dt>
-    {% if config['USER_SETTINGS'] %}
-        <dd><a href="{{ url_for('source', file_path=config['USER_SETTINGS']) }}">{{ config['USER_SETTINGS'] }}</a></dd>
-    {% else %}
-        <dd>No user settings file specified</dd>
-    {% endif %}
-    </dl>
-    <table class="settings sortable">
+    <h2>{{ _('fava: options') }}</h2>
+    <table class="options sortable">
         <thead>
             <tr>
-                <th data-sort="string" data-sort-default="desc" class="sorting-asc">{{ _('Key') }}</th>
-                <th data-sort="string">{{ _('Value') }}</th>
+                <th data-sort="string" data-sort-default="desc" data-order="asc">{{ _('Key') }}</th>
+                <th>{{ _('Value') }}</th>
             </tr>
         </thead>
         <tbody>
-            {% for key, value in config.raw.items('fava') | sort %}
+            {% for key, value in ledger.fava_options|dictsort %}
             <tr>
-                <td class="num">{{ key }}</td>
-                <td class="num"><pre>{{ value|trim }}</pre></td>
+                <td>{{ key }}</td>
+                <td><pre>{{ value }}</pre></td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
-    <br>
     <h2>{{ _('beancount: options') }}</h2>
-    <table class="options_map sortable">
+    <table class="options sortable">
         <thead>
             <tr>
-                <th data-sort="string" data-sort-default="desc" class="sorting-asc">{{ _('Key') }}</th>
-                <th data-sort="string">{{ _('Value') }}</th>
+                <th data-sort="string" data-sort-default="desc" data-order="asc">{{ _('Key') }}</th>
+                <th>{{ _('Value') }}</th>
             </tr>
         </thead>
         <tbody>
-            {% for key, value in api.options.items() | sort %}
+            {% for key, value in ledger.options|dictsort %}
             <tr>
-               <td class="num">{{ key }}</td>
-               <td class="num"><pre>{{ value }}</pre></td>
+               <td>{{ key }}</td>
+               <td><pre>{{ value }}</pre></td>
             </tr>
             {% endfor %}
         </tbody>

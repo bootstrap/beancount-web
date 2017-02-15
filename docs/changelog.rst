@@ -1,6 +1,68 @@
 Changelog
 =========
 
+v1.2 (December 25th, 2016)
+--------------------------
+
+You can now add transactions from within Fava. The form supports autocompletion
+for most fields.
+
+Fava will now show a little bubble in the sidebar for the number of events in
+the next week. This can be configured with the ``upcoming-events`` option.
+
+Other changes:
+
+- The payee filter can filter by regular expression.
+- The tag filter can filter for links, too.
+- There's a nice spinning indicator during asynchronous page loads.
+- The Journal shows little indicators for metadata.
+- As always, several bugs have been fixed.
+
+Thanks to :user:`fokusov` for their contributions.
+
+v1.1 (November 19th, 2016)
+--------------------------
+
+You can now upload documents by dropping them onto transactions, which will
+also add the file path as `statement` metadata to the transaction. Fava also
+ships with a plugin to link these transactions with the generated documents.
+See the help pages for details.
+
+This is the first release for which we provide compiled binaries (for macOS and
+Linux). These do not have any dependencies and can simply be executed from the
+terminal.
+
+Other changes:
+
+- The bar charts on account pages now also show budgets.
+- The Journal can now be sorted by date, flag and narration.
+- Fava now has a Russian translation, thanks to :user:`fokusov`.
+- As always, several bugs have been fixed.
+
+Thanks to :user:`adamgibbins` and :user:`xentac` for their contributions.
+
+v1.0 (October 19th, 2016)
+-------------------------
+
+This is a major new release that includes too many improvements and changes to
+list. Some highlights:
+
+- The layout has been tweaked and we use some nicer fonts.
+- Fava looks and works much better on smaller screens.
+- Fava loads most pages asynchronously, so navigating Fava is much faster and
+  responsive.
+
+Fava's configuration is not read from a configuration file anymore but can
+rather be specified using custom entries in the Beancount file. Some options
+have also been removed or renamed, so check Fava's help page on the available
+options when upgrading from v0.3.0.
+
+There have been many changes under the hood to improve Fava's codebase and a
+lot of bugs have been squashed.
+
+Thanks to :user:`adamgibbins`, :user:`davidastephens`, :user:`xentac`, and
+:user:`yegle` for their contributions.
+
 v0.3.0 (May 24th, 2016)
 -----------------------
 

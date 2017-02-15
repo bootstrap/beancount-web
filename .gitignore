@@ -1,5 +1,7 @@
 .coverage
+htmlcov/
 .tox
+.vagrant
 docs/_build
 *.pyc
 /dist/
@@ -15,3 +17,5 @@ npm-debug.log
 node_modules
 .cache/
 fava/translations/messages.pot
+
+.DS_Store

@@ -3,11 +3,10 @@
 {% import 'macros/_account_macros.html' as account_macros with context %}
 
 {% macro num_cell(value, currency) -%}
-<td class="num" data-sort-value="{{ value }}">{{ value|format_currency(currency) }}</td>
+<td class="num">{{ value|format_currency(currency) }}</td>
 {%- endmacro %}
 
 {% block content %}
-    {% set holdings = api.holdings(aggregation_key) %}
     <div class="headerline">
         <h3>{% if aggregation_key %}<a href="{{ url_for('report', report_name='holdings') }}">{{ _('Holdings') }}</a>{% else %}{{ _('Holdings') }}{% endif %}</h3>
         {% for key, label in [('account', _('Account')), ('currency', _('Currency')), ('cost_currency', _('Cost currency'))] %}
@@ -15,30 +14,34 @@
         {% endfor %}
     </div>
 
-    <table class="holdings sortable">
+    {% set holdings = ledger.holdings(aggregation_key) %}
+    <table class="sortable">
         <thead>
             <tr>
-                <th data-sort="string" data-sort-default="desc" class="sorting-asc">{{ _('Account') }}</th>
-                <th data-sort="float" data-sort-default="desc">{{ _('Units') }}</th>
+                <th data-sort="string" data-sort-default="desc" data-order="asc">{{ _('Account') }}</th>
+                <th data-sort="num" data-sort-default="desc">{{ _('Units') }}</th>
                 <th data-sort="string">{{ _('Currency') }}</th>
                 <th data-sort="string">{{ _('Cost currency') }}</th>
-                <th data-sort="float" data-sort-default="desc">{{ _('Average Cost') }}</th>
-                <th data-sort="float" data-sort-default="desc">{{ _('Price') }}</th>
-                <th data-sort="float" data-sort-default="desc">{{ _('Book Value') }}</th>
-                <th data-sort="float" data-sort-default="desc">{{ _('Market Value') }}</th>
+                <th data-sort="num" data-sort-default="desc">{{ _('Average Cost') }}</th>
+                <th data-sort="num" data-sort-default="desc">{{ _('Price') }}</th>
+                <th data-sort="num" data-sort-default="desc">{{ _('Book Value') }}</th>
+                <th data-sort="num" data-sort-default="desc">{{ _('Market Value') }}</th>
+                <th data-sort="string" data-sort-default="desc">{{ _('Acquisition Date') }}</th>
             </tr>
         </thead>
         <tbody>
-            {% for holding in holdings %}
+            {% for posting in holdings %}
             <tr>
-                <td>{{ account_macros.account_name(holding.account) }}</td>
-                {{ num_cell(holding.number, holding.currency) }}
-                <td>{{ holding.currency}}</td>
-                <td>{{ holding.cost_currency }}</td>
-                {{ num_cell(holding.cost_number, holding.cost_currency) }}
-                {{ num_cell(holding.price_number, holding.cost_currency) }}
-                {{ num_cell(holding.book_value, holding.cost_currency) }}
-                {{ num_cell(holding.market_value, holding.cost_currency) }}
+                {% set cost_currency = posting.cost.currency if posting.cost else posting.units.currency %}
+                <td>{{ account_macros.account_name(posting.account) }}</td>
+                {{ num_cell(posting.units.number if posting.units.currency != '*' else None, posting.units.currency) }}
+                <td>{{ posting.units.currency}}</td>
+                <td>{{ cost_currency }}</td>
+                {{ num_cell(posting.cost.number, cost_currency) }}
+                {{ num_cell(posting.price, cost_currency) }}
+                {{ num_cell(posting.units.number * posting.cost.number if posting.cost else posting.units.number, cost_currency) }}
+                {{ num_cell(posting.units.number * posting.price if posting.price  else None, cost_currency) }}
+                <td>{{ posting.cost.date or ''  if posting.cost else '' }}</td>
             </tr>
             {% endfor %}
         </tbody>

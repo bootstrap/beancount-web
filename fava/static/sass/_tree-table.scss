@@ -2,155 +2,141 @@
 //
 // some of the shared styles are in `_journal_table.scss`
 
-ol.tree-table {
-    @include scrollbar(.5em, darken($color_sidebar_background, 30), transparent);
+.tree-table {
+  @extend %scrollbar;
 
-    &.fullwidth {
-        overflow-x: auto;
-        max-width: 100%;
-        display: block;
+  &.fullwidth {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  &:hover {
+    .balance-children {
+      opacity: .8;
+    }
+  }
+
+  p {
+    margin-top: -1px;
+
+    > span {
+      border: 1px solid $color-table-header-background;
+      margin-right: -1px;
+    }
+  }
+
+  $tree-indent: 1em;
+
+  // table cells
+  .account-cell {
+    align-items: center;
+    display: flex;
+    flex: 1;
+    max-width: 30em;
+    min-width: 14em;
+
+    @for $i from 1 through 10 {
+      &.depth-#{$i} {
+        margin-left: $i * $tree-indent;
+        max-width: 30em - $i * $tree-indent;
+        min-width: 14em - $i * $tree-indent;
+      }
     }
 
-    p { margin-top: -1px; }
-
-    .head > p > span {
-        border-right: 1px solid $color_treetable_header_bg;
-        padding: 3px 5px 2px 8px;
-        background: $color_treetable_header_bg;
-
-        span { flex-grow: 1; }
+    a {
+      margin-left: 1em;
     }
+  }
 
-    p > span {
-        border: 1px solid $color_treetable_header_bg;
-        margin-right: -1px;
-        flex-shrink:0;
+  .has-children {
+    cursor: pointer;
 
-        &.account {
-            flex: 1;
-            align-items: center;
-            display: flex;
-            min-width: 200px;
-
-            @for $i from 1 through 5 {
-                &.account-depth-#{$i} {
-                    min-width: 200px - $i * 20px;
-                    margin-left: $i * 20px;
-                }
-            }
-
-            &.has-children {
-                cursor: pointer;
-            }
-
-            a {
-                margin-left: 15px;
-            }
-        }
-
-        &.num-header,
-        &.num {
-            width: 10rem;
-            a {
-                display: block;
-                color: inherit;
-            }
-        }
-
-        &.other-header,
-        &.other {
-            width: 13rem;
-
-            a {
-                display: block;
-                color: inherit;
-            }
-        }
+    &::before {
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid $color-treetable-expander;
+      content: '';
+      margin: 0 -10px 0 0;
     }
+  }
 
-    &:hover {
-        .balance-children {
-            color: lighten($color_text, 30);
-        }
+  .num {
+    width: 10em;
+
+    a {
+      color: inherit;
+      display: block;
     }
+  }
 
-    .has-balance {
-        .balance {
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
+  .other {
+    width: 13em;
 
-            & > span { white-space: nowrap; }
-            & > span.number { flex-grow: 1; }
-        }
-        .balance-children {
-            display: none;
-        }
+    a {
+      color: inherit;
+      display: block;
+    }
+  }
+
+  .has-balance {
+    .balance {
+      display: block;
     }
 
     .balance-children {
-        display: block;
-        color: lighten($color_text, 60);
+      display: none;
+    }
+  }
+
+  .balance-children {
+    display: block;
+    opacity: .6;
+  }
+
+  .toggled {
+    ol { display: none; }
+
+    .balance {
+      display: none;
     }
 
-    li.toggled {
-        ol { display: none; }
-
-        .balance {
-            display: none;
-        }
-
-        .balance-children {
-            display: block;
-            color: $color_text;
-        }
+    .balance-children {
+      color: $color-text;
+      display: block;
     }
 
-    span.expander {
-        width: 5px;
-        margin: 0 -10px 0 0;
-        height: 5px;
-        border-left: 5px solid transparent;
-        border-right: 5px solid transparent;
-        border-top: 5px solid $color_treetable_expander;
-        cursor: pointer;
+    .has-children {
+      &::before {
+        transform: rotate(270deg);
+      }
     }
+  }
 
-    .toggled span.expander {
-        border-top: 5px solid transparent;
-        border-bottom: 5px solid transparent;
-        border-left: 5px solid $color_treetable_expander;
-        margin: 0 -13px 0 3px;
-    }
+  .expand-all {
+    color: inherit;
+    font-weight: normal;
+    opacity: .5;
+  }
 
-    a.expand-all {
-       color: lighten($color_text, 40);
-       font-weight: normal;
-    }
+  .budget {
+    margin-right: 4px;
 
-    span.budget {
-        margin-right: 4px;
-
-        &.budget-negative { color: $color_budget_negative; }
-        &.budget-positive { color: $color_budget_positive; }
-        &.budget-zero     { color: $color_budget_zero; }
-    }
+    &.budget-negative { color: $color-budget-negative; }
+    &.budget-positive { color: $color-budget-positive; }
+    &.budget-zero { color: $color-budget-zero; }
+  }
 }
 
-@for $i from 1 through 5 {
-    $num_fraction: 1rem * (1-(($i - 1)/10));
-    ol.tree-table.currencies#{$i} {
-       p > span {
-            &.num-header,
-            &.num {
-                width: 20rem / ($i+1);
-                font-size: $num_fraction;
-            }
-            &.other-header,
-            &.other {
-                width: 20rem / ($i+1) + 3rem;
-                font-size: $num_fraction;
-            }
-       }
-    }
+// For two or more operating currencies, set a slightly smaller size.
+.two-currencies {
+  font-size: .9em;
+
+  &.num {
+    width: 8em;
+  }
+
+  &.other {
+    width: 11em;
+  }
 }

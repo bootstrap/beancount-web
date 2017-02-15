@@ -1,98 +1,101 @@
 // Editor
 
-@import '~codemirror/lib/codemirror.css';
-@import '~codemirror/addon/dialog/dialog.css';
-@import '~codemirror/addon/fold/foldgutter.css';
-@import '~codemirror/addon/hint/show-hint.css';
+// sass-lint:disable class-name-format
 
-article#page-source {
-    padding: 0;
+@import 'codemirror/lib/codemirror';
+@import 'codemirror/addon/dialog/dialog';
+@import 'codemirror/addon/fold/foldgutter';
+@import 'codemirror/addon/hint/show-hint';
 
-    form {
-        background: lighten($color_sidebar_background, 2);
+.source-editor-wrapper {
+  bottom: 0;
+  left: $aside-width;
+  position: fixed;
+  right: 0;
+  top: $header-height + 43px;
+}
 
-        > select {
-            margin: 5px 10px;
-        }
+.source-form {
+  background: $color-sidebar-background;
+  bottom: 0;
+  left: $aside-width;
+  position: fixed;
+  right: 0;
+  top: $header-height;
 
-        > input {
-            margin: 5px;
-            background: $color_header;
-            color: #fff;
-            padding: 4px 10px;
-            border: 1px solid darken($color_header, 9);
-        }
+  > select {
+    margin: 5px 10px;
+  }
 
-        div#source-editor-wrapper {
-            position: fixed;
-            top: $header_height + 37px;
-            right: 0;
-            bottom: 0;
-            left: $aside_width;
-        }
+  .fieldset {
+    border-bottom: 1px solid $color-sidebar-border;
+  }
 
-        .CodeMirror,
-        textarea {
-            border: none;
-            width: 100%;
-            height: 100%;
-            margin: 0;
+  .CodeMirror,
+  textarea {
+    border: 0;
+    height: 100%;
+    margin: 0;
+    width: 100%;
+  }
 
-            .CodeMirror-lines {
-                border-top: 1px solid darken($color_sidebar_background, 10);
-            }
-        }
-    }
-
-    div#source-readonly {
-        padding: 1.5em;
-    }
+  .CodeMirror-lines {
+    border-top: 1px solid $color-sidebar-border;
+  }
 }
 
 .CodeMirror-gutters {
-    background: lighten($color_sidebar_background, 2);
-    border-right: 1px solid darken($color_sidebar_background, 10);
+  background: $color-sidebar-background;
+  border-right: 1px solid $color-sidebar-border;
 }
 
 .CodeMirror {
-    font: 13px $font_family_editor;
-    border: 1px solid darken($color_background, 9);
-    margin-bottom: 1em;
+  border: 1px solid $color-sidebar-border;
+  font: 13px $font-family-editor;
+  margin-bottom: 1em;
 
-    .cm-section {
-        color: $color_editor_comment;
-        font-weight: bold;
-        border: solid 1px $color_editor_comment;
-        border-radius: 2px;
-        padding-right: 10px;
-    }
+  .cm-trailingspace {
+    background-color: $color-editor-trailing-whitespace;
+  }
 
-    .cm-comment {
-        color: $color_editor_comment;
-    }
+  .cm-section {
+    border: solid 1px $color-editor-comment;
+    border-radius: 2px;
+    color: $color-editor-comment;
+    font-weight: 500;
+    padding-right: 10px;
+  }
 
-    .cm-date {
-        color: $color_editor_date;
-    }
+  .cm-comment {
+    color: $color-editor-comment;
+  }
 
-    .cm-directive {
-        color: $color_editor_directive;
-        font-weight: bold;
-    }
+  .cm-date {
+    color: $color-editor-date;
+  }
 
-    .cm-option {
-        color: $color_editor_class;
-    }
+  .cm-directive {
+    color: $color-editor-directive;
+    font-weight: 500;
+  }
 
-    .cm-account {
-        color: $color_editor_account;
-    }
+  .cm-option {
+    color: $color-editor-class;
+  }
 
-    .cm-invalid {
-        color: $color_editor_invalid;
-    }
+  .cm-account {
+    color: $color-editor-account;
+  }
+
+  .cm-invalid {
+    color: $color-editor-invalid;
+  }
 }
 
 .CodeMirror-hint {
-    max-width: 600px;
+  max-width: 600px;
+
+  .highlight {
+    font-weight: 500;
+  }
 }

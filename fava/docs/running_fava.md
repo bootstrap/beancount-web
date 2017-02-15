@@ -1,20 +1,18 @@
----
-title: Running Fava
----
-
 Fava can be started with the `fava` command. `fava --help` will show all the
 available command-line options.
 
 ```
 $ fava --help
-Usage: fava [OPTIONS] FILENAME
+Usage: fava [OPTIONS] [FILENAMES]...
 
-  Start fava for FILENAME on http://host:port.
+  Start Fava for FILENAMES on http://host:port.
+
+  If the `BEANCOUNT_FILE` environment variable is set, Fava will use the
+  file specified there in addition to FILENAMES.
 
 Options:
   -p, --port INTEGER             The port to listen on. (default: 5000)
   -H, --host TEXT                The host to listen on. (default: localhost)
-  -s, --settings PATH            Settings file for fava.
   -d, --debug                    Turn on debugging. Disables live-reloading.
   --profile                      Turn on profiling. Implies --debug.
   --profile-dir PATH             Output directory for profiling data.
@@ -26,18 +24,18 @@ Options:
 
 Run with default configuration:
 
-```bash
+```
 fava ledger.beancount
 ```
 
-Specify a settings file and enable debug-mode:
+Enable debug mode:
 
-```bash
-fava --debug --settings /Volumes/Ledger/fava-settings.conf /Volumes/Ledger/ledger.beancount
+```
+fava --debug /Volumes/Ledger/ledger.beancount
 ```
 
 Specify a different port and enable debug-mode:
 
-```bash
+```
 fava --port 8080 --debug /Volumes/Ledger/ledger.beancount
 ```

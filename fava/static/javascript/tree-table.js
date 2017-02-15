@@ -1,18 +1,26 @@
-module.exports.initTreeTable = function initTreeTable() {
-  $('ol.tree-table span.has-children').click((event) => {
-    const row = $(event.currentTarget).parents('li').first();
-    if (event.shiftKey === true) {
-      row.find('li').toggleClass('toggled', !row.hasClass('toggled'));
-    }
-    row.toggleClass('toggled');
-    row.parents('ol').find('a.expand-all')
-      .toggleClass('hidden', row.parents('ol').find('li.toggled'));
-  });
+import { $, $$ } from './helpers';
 
-  $('ol.tree-table').on('click', 'a.expand-all', (event) => {
-    event.preventDefault();
-    const $this = $(event.target);
-    $this.parents('ol').find('li.toggled').removeClass('toggled');
-    $this.addClass('hidden');
+export default function initTreeTable() {
+  $$('.tree-table').forEach((table) => {
+    $.delegate(table, 'click', 'span.has-children', (event) => {
+      const row = event.target.closest('li');
+      const willShow = row.classList.contains('toggled');
+      if (event.shiftKey) {
+        $$('li', row).forEach((el) => { el.classList.toggle('toggled', !willShow); });
+      }
+      if (event.ctrlKey || event.metaKey) {
+        $$('li', row).forEach((el) => { el.classList.toggle('toggled', willShow); });
+      }
+      row.classList.toggle('toggled');
+
+      $('a.expand-all', table)
+        .classList.toggle('hidden', !$$('.toggled', table).length);
+    });
+
+    $.delegate(table, 'click', 'a.expand-all', (event) => {
+      event.preventDefault();
+      event.target.classList.add('hidden');
+      $$('.toggled', table).forEach((el) => { el.classList.remove('toggled'); });
+    });
   });
-};
+}

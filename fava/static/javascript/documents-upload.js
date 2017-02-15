@@ -1,94 +1,105 @@
-module.exports.initDocumentsUpload = function() {
-  function uploadDocuments(formData, filename, targetFolderIndex) {
-    formData.append('filename', filename);
-    formData.append('targetFolderIndex', targetFolderIndex);
+import { $, $$, handleJSON } from './helpers';
+import e from './events';
 
-    $.ajax({
-      type: 'POST',
-      url: window.documentsUploadUrl,
-      data: formData,
-      contentType: false,
-      cache: false,
-      processData: false,
-      async: false,
-      success: function(data) {
-        alert(data);
-      },
-      error: function(data) {
-        alert("Error while uploading:\n\n" + data.responseText);
-      }
+const filenameRegex = /^\d{4}-\d{1,2}-\d{1,2}$/;
+
+function uploadDocument(formData) {
+  const documentFolder = $('#document-upload-folder').value;
+  formData.append('folder', documentFolder);
+
+  $.fetch($('#document-upload-submit').getAttribute('data-url'), {
+    method: 'PUT',
+    body: formData,
+  })
+    .then(handleJSON)
+    .then((data) => {
+      e.trigger('info', data.message);
+    }, (error) => {
+      e.trigger('error', `Upload error: ${error}`);
     });
-  }
+}
 
-  // File uploads via Drag and Drop on elements with class "droptarget" and
-  // attribute "data-account-name"
-  if (window.documentsFolders.length > 0) {
-    $('.droptarget').bind({
-      dragenter: function(e) {
-        e.stopPropagation();
-        e.preventDefault();
-      },
+// File uploads via Drag and Drop on elements with class "droptarget" and
+// attribute "data-account-name"
+export default function initDocumentsUpload() {
+  $$('.droptarget').forEach((target) => {
+    target.addEventListener('dragenter', (event) => {
+      target.classList.add('dragover');
+      event.preventDefault();
+      event.stopPropagation();
+    });
 
-      dragover: function(e) {
-        e.stopPropagation();
-        e.preventDefault();
-      },
+    target.addEventListener('dragover', (event) => {
+      target.classList.add('dragover');
+      event.preventDefault();
+      event.stopPropagation();
+    });
 
-      drop: function(e) {
-        e.preventDefault();
-        var files = e.originalEvent.dataTransfer.files;
+    target.addEventListener('dragleave', (event) => {
+      target.classList.remove('dragover');
+      event.preventDefault();
+      event.stopPropagation();
+    });
 
-        for (var i = 0; i < files.length; i++) {
-          var formData = new FormData();
-          console.log(files[i]);
-          formData.append('file', files[i]);
-          formData.append('account_name', $(this).attr('data-account-name'));
+    target.addEventListener('drop', (event) => {
+      target.classList.remove('dragover');
+      event.preventDefault();
+      event.stopPropagation();
 
-          var filename = files[i].name;
-          var filenameRegex = /^\d{4}-\d{1,2}-\d{1,2}\.$/;
+      const accountName = target.getAttribute('data-account-name');
+      const folders = $$('#document-upload-folder option');
+      const files = event.dataTransfer.files;
+      const now = new Date();
+      let changedFilename = false;
 
-          if (filename.length < 11 || filenameRegex.test(filename.substring(0, 11)) === false) {
-            var today = new Date();
-            filename = today.toISOString().substring(0, 10) + '.' + filename;
-          }
+      const entryHash = target.getAttribute('data-entry');
 
-          $('#documents-upload input#document-name').val(filename);
-          $('#documents-upload input[type="submit"]').click(function(event) {
-            event.preventDefault();
-            var documentFolderIndex = $('#documents-upload select#document-upload-folder').val();
-            uploadDocuments(formData, filename, documentFolderIndex);
-            $('.overlay-wrapper').hide();
-          });
+      if (!folders.length) {
+        e.trigger('error', 'You need to set the "documents" Beancount option to enable file uploads.');
+        return;
+      }
 
-          if (window.documentsFolders.length <= 1) {
-            $('#documents-upload select#document-upload-folder').hide();
-            $('#documents-upload label#label-documents-upload-folder').hide();
-          }
+      // add input elements for files
+      $('#document-names').innerHTML = '';
+      for (let i = 0; i < files.length; i += 1) {
+        let filename = files[i].name;
 
-          if (filename == files[i].name) {
-            $('#documents-upload input#document-name').hide();
-            $('#documents-upload label#label-document-name').hide();
-          }
-
-          if (window.documentsFolders.length > 1 ||  filename != files[i].name) {
-            $('#documents-upload').show();
-          } else {
-            uploadDocuments(formData, filename, 0)
-          }
+        if (filename.length < 11 || filenameRegex.test(filename.substring(0, 10)) === false) {
+          filename = `${now.toISOString().substring(0, 10)} ${filename}`;
+          changedFilename = true;
         }
+
+        $('#document-names').insertAdjacentHTML('beforeend', `<input type="text" value="${filename}" data-index="${i}">`);
+      }
+
+      // upload files on submit
+      $.once($('#document-upload-submit'), 'click', (event_) => {
+        event_.preventDefault();
+
+        $$('#document-names input').forEach((element) => {
+          const formData = new FormData();
+          const file = files[element.getAttribute('data-index')];
+          formData.append('file', file);
+          formData.append('account', accountName);
+          formData.append('filename', element.value);
+
+          if (entryHash) {  // statement upload (add adding it to metadata)
+            formData.append('entry_hash', entryHash);
+          }
+
+          uploadDocument(formData);
+        });
+
+        $('#documents-upload').classList.remove('shown');
+        $('#document-names').innerHTML = '';
+        e.trigger('reload');
+      });
+
+      if (folders.length > 1 || changedFilename) {
+        $('#documents-upload').classList.add('shown');
+      } else {
+        $('#document-upload-submit').click();
       }
     });
-  }
-
-  $('.droptarget').dragster({
-    enter: function(dragsterEvent, event) {
-      $(this).addClass('dragover');
-    },
-    leave: function(dragsterEvent, event) {
-      $(this).removeClass('dragover');
-    },
-    drop: function(dragsterEvent, event) {
-      $(this).removeClass('dragover');
-    }
   });
 }

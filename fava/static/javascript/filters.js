@@ -1,58 +1,82 @@
-/* global Awesomplete */
-require('awesomplete');
+import Awesomplete from 'awesomplete';
+import URI from 'urijs';
 
-module.exports.initFilters = function initFilters() {
-  $('#filter-form input').on('input awesomplete-selectcomplete', function() {
-    const $this = $(this);
-    const isEmpty = !$this.val();
+import { $, $$ } from './helpers';
 
-    if ($this.val().length > $this.attr('placeholder').length) {
-      $this.attr('size', $this.val().length + 2);
-    } else {
-      $this.attr('size', $this.attr('placeholder').length + 2);
+function updateInput(input) {
+  const isEmpty = !input.value;
+
+  if (input.value.length > input.getAttribute('placeholder').length) {
+    input.setAttribute('size', input.value.length + 2);
+  } else {
+    input.setAttribute('size', input.getAttribute('placeholder').length + 2);
+  }
+
+  input.closest('span').classList.toggle('empty', isEmpty);
+}
+
+export function updateFilters() {
+  ['account', 'from', 'payee', 'tag', 'time'].forEach((filter) => {
+    const value = new URI(window.location).search(true)[filter];
+    if (value) {
+      const el = document.getElementById(`${filter}-filter`);
+      el.value = value;
+      updateInput(el);
     }
+  });
+}
 
-    $this.parents('li')
-        .toggleClass('empty', isEmpty)
-      .find('button')
-        .toggle(!isEmpty);
+export function initFilters() {
+  $$('#filter-form input').forEach((input) => {
+    input.addEventListener('awesomplete-selectcomplete', () => {
+      updateInput(input);
+      $('#filter-form').dispatchEvent(new Event('submit'));
+    });
+
+    input.addEventListener('input', () => {
+      updateInput(input);
+    });
   });
 
-  $('#filter-form input[type="text"]').each(function() {
+  $$('#filter-form input[type="text"]').forEach((el) => {
     let options = {
       minChars: 0,
       maxItems: 30,
+      sort(text, input) {
+        const order = el.getAttribute('name') === 'time' ? -1 : 1;
+        return text.value.localeCompare(input.value) * order;
+      },
     };
 
-    if ($(this).attr('name') === 'tag' || $(this).attr('name') === 'payee') {
+    if (el.getAttribute('name') === 'tag') {
       options = $.extend(options, {
         filter(text, input) {
-          return Awesomplete.FILTER_CONTAINS(text, input.match(/[^,]*$/)[0]);
+          return Awesomplete.FILTER_CONTAINS(text, input.match(/[^,]*$/)[0]); // eslint-disable-line new-cap, max-len
         },
         replace(text) {
           const before = this.input.value.match(/^.+,\s*|/)[0];
-          this.input.value = before + text + ', ';
+          this.input.value = `${before}${text}, `;
         },
       });
     }
 
-    const completer = new Awesomplete(this, options);
-    const isEmpty = !$(this).val();
+    const completer = new Awesomplete(el, options);
+    const isEmpty = !el.value;
 
-    $(this).parents('li')
-        .toggleClass('empty', isEmpty)
-      .find('button')
-        .toggle(!isEmpty);
+    el.closest('span').classList.toggle('empty', isEmpty);
 
-    $(this).focus(() => {
+    el.addEventListener('focus', () => {
       completer.evaluate();
     });
   });
 
-  $('#filter-form button').click(function() {
-    $(this).parents('li')
-      .find('input')
-        .val('');
-    $('#filter-form').submit();
+  $$('#filter-form button[type="button"]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const input = $('input', button.closest('span'));
+      input.value = '';
+      updateInput(input);
+
+      $('#filter-form').dispatchEvent(new Event('submit'));
+    });
   });
-};
+}

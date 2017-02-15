@@ -1,52 +1,48 @@
+import ast
 import os
-from setuptools import setup
-
-version = __import__('fava').__version__
-author = __import__('fava').__author__
-author_email = __import__('fava').__author_email__
-url = __import__('fava').__url__
-license = __import__('fava').__license__
+import re
+from setuptools import find_packages, setup
 
 
-def read_md(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname), 'r').read()
+with open('fava/__init__.py', 'rb') as f:
+    VERSION = str(ast.literal_eval(re.search(
+        r'__version__\s+=\s+(.*)',
+        f.read().decode('utf-8')).group(1)))
+
+
+def _read(fname):
+    path = os.path.join(os.path.dirname(__file__), fname)
+    return open(path).read()
 
 
 setup(
     name='beancount-fava',
-    version=version,
+    version=VERSION,
     description=('A rich web interface for the CL-accounting tool beancount.'),
-    long_description=read_md('README.rst'),
-    url=url,
-    author=author,
-    author_email=author_email,
-    license=license,
+    long_description=_read('README.rst'),
+    url='https://beancount.github.io/fava/',
+    author='Dominik Aumayr',
+    author_email='dominik@aumayr.name',
+    license='MIT',
     keywords='fava beancount beancount-fava beancount-web'
              'ledger ledger-cli cl-accounting',
-    packages=['fava',
-              'fava.util',
-              'fava.api'],
+    packages=find_packages(exclude=['tests']),
     include_package_data=True,
     entry_points={
         'console_scripts': [
             'fava = fava.cli:main',
-            'beancount-web = fava.cli:main',
         ]
     },
     install_requires=[
-        'beancount>=2.0b11',
+        'beancount>=2.0b12',
         'click',
-        'pygments>=2.1.1',
-        'beancount-pygments-lexer>=0.1.2',
         'markdown2>=2.3.0',
         'Flask>=0.10.1',
-        'livereload>=2.4.1',
-        'python-dateutil>=2.4.2',
         'Flask-Babel>=0.10.0',
     ],
     extras_require={
         'excel': [
-            'pyexcel>=0.2.0',
+            'pyexcel>=0.2.2',
             'pyexcel-ods3>=0.1.1',
             'pyexcel-xls>=0.1.0',
             'pyexcel-xlsx>=0.1.0',
@@ -54,7 +50,7 @@ setup(
     },
     zip_safe=False,
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Environment :: Web Environment',
         'Framework :: Flask',
         'Intended Audience :: Education',
@@ -64,7 +60,6 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Programming Language :: JavaScript',
-        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3 :: Only',

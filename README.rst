@@ -1,33 +1,23 @@
-fava
-====
-
-.. image:: https://badges.gitter.im/aumayr/fava.svg
-   :alt: Join the chat at https://gitter.im/aumayr/fava
-   :target: https://gitter.im/aumayr/fava?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge
-
-.. image:: https://img.shields.io/badge/plaintextaccounting.org-beancount-red.svg
-   :target: http://plaintextaccounting.org
+.. image:: https://badges.gitter.im/beancount/fava.svg
+   :alt: Join the chat at https://gitter.im/beancount/fava
+   :target: https://gitter.im/beancount/fava
 .. image:: https://img.shields.io/pypi/l/beancount-fava.svg
    :target: https://pypi.python.org/pypi/beancount-fava
 .. image:: https://img.shields.io/pypi/v/beancount-fava.svg
    :target: https://pypi.python.org/pypi/beancount-fava
-.. image:: https://img.shields.io/pypi/dm/beancount-fava.svg
-   :target: https://pypi.python.org/pypi/beancount-fava
-.. image:: https://img.shields.io/github/commits-since/aumayr/fava/v0.3.0.svg
-   :target: https://github.com/aumayr/fava/compare/v0.3.0...master
-.. image:: https://img.shields.io/travis/aumayr/fava.svg
-   :target: https://travis-ci.org/aumayr/fava?branch=master
+.. image:: https://img.shields.io/travis/beancount/fava.svg
+   :target: https://travis-ci.org/beancount/fava?branch=master
 
-fava is a web interface for the double-entry bookkeeping software `beancount
+Fava is a web interface for the double-entry bookkeeping software `beancount
 <http://furius.ca/beancount/>`__ with a focus on features and usability.
 
-You can try out an online `demo <http://fava.pythonanywhere.com>`__.
+Check out the online `demo <http://fava.pythonanywhere.com>`__ and learn more
+about Fava on the `Web Site <https://beancount.github.io/fava/>`__.
 
 The `Getting Started
-<https://aumayr.github.io/fava/usage.html>`__ guide details the installation and
-how to get started with beancount.
-
-If you are familiar with beancount, you can get started with fava::
+<https://beancount.github.io/fava/usage.html>`__ guide details the installation
+and how to get started with beancount.  If you are already familiar with
+beancount, you can get started with Fava::
 
     pip3 install beancount-fava
     fava ledger.beancount
@@ -35,11 +25,12 @@ If you are familiar with beancount, you can get started with fava::
 and visit the web interface at `http://localhost:5000
 <http://localhost:5000>`__.
 
-If you want to hack on ``fava`` or run a development version, see the
-`Development <https://aumayr.github.io/fava/development.html>`__ page on the
-website for details.
+If you want to hack on Fava or run a development version, see the
+`Development <https://beancount.github.io/fava/development.html>`__ page on the
+website for details. Contributions are very welcome!
 
---------------
-
-**Caution**: Consider this *beta*-software. Contributions are very
-welcome :-)
+.. image:: https://raw.githubusercontent.com/beancount/fava/master/docs/static/screenshot.png
+    :alt: Fava Screenshot
+    :width: 100%
+    :align: center
+    :target: http://fava.pythonanywhere.com

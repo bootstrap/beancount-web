@@ -1,50 +1,52 @@
-const URI = require('urijs');
+import URI from 'urijs';
 
-module.exports.initJournal = function initJournal() {
-  // Toggle legs by clicking on transaction/padding row
-  $('#journal-table li.transaction').click((event) => {
-    $(event.currentTarget).find('.posting').toggleClass('hidden');
+import { $, $$ } from './helpers';
+
+export default function initJournal() {
+  const journal = $('#journal-table');
+  if (!journal) return;
+
+  // Toggle postings by clicking on transaction row.
+  $.delegate(journal, 'click', '.transaction', (event) => {
+    $('.postings', event.target.closest('.transaction')).classList.toggle('hidden');
+    if ($('.metadata', event.target.closest('.transaction'))) {
+      $('.metadata', event.target.closest('.transaction')).classList.toggle('hidden');
+    }
   });
 
-  // Toggle entries with checkboxes
-  $('#entry-filters input').click(function() {
-    event.preventDefault();
-    const $this = $(this);
-    const selector = $this.attr('data-selector');
-    const shouldShow = $this.hasClass('inactive');
+  // Toggle entries with buttons.
+  $$('#entry-filters button').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      const type = button.getAttribute('data-type');
+      const shouldShow = button.classList.contains('inactive');
 
-    if ($this.val() === 'Transaction') {
-      $('#entry-filters .txn-toggle').toggleClass('inactive', !shouldShow);
-    }
-
-    $('#journal-table ' + selector).toggleClass('hidden', !shouldShow);
-    $this.toggleClass('inactive', !shouldShow);
-
-    // Modify get params
-    const url = new URI(window.location);
-    let modified = false;
-    const filterShow = [];
-    $('#entry-filters input').each(function() {
-      const $this = $(this);
-      const shouldShow = $this.hasClass('inactive');
-      const defaultShow = $this.attr('data-show-default') === 'true';
-      if (shouldShow === defaultShow) {
-        modified = true;
+      button.classList.toggle('inactive', !shouldShow);
+      if (type === 'transaction') {
+        $$('#entry-filters .txn-toggle').forEach((el) => { el.classList.toggle('inactive', !shouldShow); });
       }
-      if (!shouldShow) {
-        filterShow.push($this.attr('data-type'));
-      }
-    });
 
-    if (modified) {
-      url.setSearch({
-        show: filterShow,
+      if (type === 'custom') {
+        $$('#entry-filters .custom-toggle').forEach((el) => { el.classList.toggle('inactive', !shouldShow); });
+      }
+
+      if (type === 'document') {
+        $$('#entry-filters .doc-toggle').forEach((el) => { el.classList.toggle('inactive', !shouldShow); });
+      }
+
+      $$(`#journal-table .${type}`).forEach((el) => { el.classList.toggle('hidden', !shouldShow); });
+
+      // Modify get params
+      const filterShow = [];
+      $$('#entry-filters button').forEach((el) => {
+        if (!el.classList.contains('inactive')) {
+          filterShow.push(el.getAttribute('data-type'));
+        }
       });
-    } else {
-      url.removeSearch(['show']);
-    }
 
-    window.history.pushState('', '', url.toString());
-    return false;
+      const url = new URI(window.location)
+        .setSearch({ show: filterShow });
+      window.history.pushState(null, null, url.toString());
+    });
   });
-};
+}

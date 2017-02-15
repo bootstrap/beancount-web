@@ -1,13 +1,16 @@
-# -*- coding: utf-8 -*-
+"""The command-line interface for Fava."""
+
 import os
 import errno
 
 import click
-from livereload import Server
+from werkzeug.wsgi import DispatcherMiddleware
 
-from fava.application import app, load_file, load_settings
+from fava.application import app, load_file
+from fava.util import simple_wsgi
 
 
+# pylint: disable=too-many-arguments
 @click.command()
 @click.argument('filenames', nargs=-1,
                 type=click.Path(exists=True, resolve_path=True))
@@ -15,9 +18,8 @@ from fava.application import app, load_file, load_settings
               help='The port to listen on. (default: 5000)')
 @click.option('-H', '--host', type=str, default='localhost',
               help='The host to listen on. (default: localhost)')
-@click.option('-s', '--settings',
-              type=click.Path(exists=True, resolve_path=True),
-              help='Settings file for fava.')
+@click.option('--prefix', type=str,
+              help='Set an URL prefix. (for reverse proxy)')
 @click.option('-d', '--debug', is_flag=True,
               help='Turn on debugging. Disables live-reloading.')
 @click.option('--profile', is_flag=True,
@@ -26,13 +28,17 @@ from fava.application import app, load_file, load_settings
               help='Output directory for profiling data.')
 @click.option('--profile-restriction', type=int, default=30,
               help='Number of functions to show in profile.')
-def main(filenames, port, host, settings, debug, profile, profile_dir,
+def main(filenames, port, host, prefix, debug, profile, profile_dir,
          profile_restriction):
-    """Start fava for FILENAMES on http://host:port."""
+    """Start Fava for FILENAMES on http://host:port.
 
-    if profile_dir:
+    If the `BEANCOUNT_FILE` environment variable is set, Fava will use the file
+    specified there in addition to FILENAMES.
+    """
+
+    if profile_dir:  # pragma: no cover
         profile = True
-    if profile:
+    if profile:  # pragma: no cover
         debug = True
 
     env_filename = os.environ.get('BEANCOUNT_FILE', None)
@@ -43,12 +49,14 @@ def main(filenames, port, host, settings, debug, profile, profile_dir,
         raise click.UsageError('No file specified')
 
     app.config['BEANCOUNT_FILES'] = filenames
-    app.config['USER_SETTINGS'] = settings
 
-    load_settings()
     load_file()
 
-    if debug:
+    if prefix:
+        app.wsgi_app = DispatcherMiddleware(simple_wsgi,
+                                            {prefix: app.wsgi_app})
+
+    if debug:  # pragma: no cover
         if profile:
             from werkzeug.contrib.profiler import ProfilerMiddleware
             app.config['PROFILE'] = True
@@ -57,34 +65,19 @@ def main(filenames, port, host, settings, debug, profile, profile_dir,
                 restrictions=(profile_restriction,),
                 profile_dir=profile_dir if profile_dir else None)
 
+        app.jinja_env.auto_reload = True
+
+    try:
         app.run(host, port, debug)
-    else:
-        server = Server(app.wsgi_app)
-        if settings:
-            server.watch(settings, load_settings)
-
-        def reload_source_files(api):
-            filename = api.options['filename']
-            api.load_file()
-            include_path = os.path.dirname(filename)
-            for filename in api.options['include'] + \
-                    api.options['documents']:
-                server.watch(os.path.join(include_path, filename),
-                             lambda: reload_source_files(api))
-
-        for api in app.config['APIS'].values():
-            reload_source_files(api)
-
-        try:
-            server.serve(port=port, host=host, debug=debug)
-        except OSError as error:
-            if error.errno == errno.EADDRINUSE:
-                print("Error: Can not start webserver because the port/address"
-                      "is already in use.")
-                print("Please choose another port with the '-p' option.")
-            else:
-                raise
+    except OSError as error:
+        if error.errno == errno.EADDRINUSE:
+            raise click.UsageError(
+                "Can not start webserver because the port is already in "
+                "use. Please choose another port with the '-p' option.")
+        else:  # pragma: no cover
+            raise
 
 
-if __name__ == "__main__":
-    main()
+# needed for pyinstaller:
+if __name__ == '__main__':  # pragma: no cover
+    main()  # pylint: disable=no-value-for-parameter

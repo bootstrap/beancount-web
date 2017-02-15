@@ -1,34 +1,34 @@
 import csv
 from collections import OrderedDict
+import datetime
 import io
+
+from beancount.core.number import Decimal
 
 try:
     import pyexcel
-    import pyexcel.ext.xls
-    import pyexcel.ext.xlsx
-    import pyexcel.ext.ods3
     HAVE_EXCEL = True
-except ImportError:
+except ImportError:  # pragma: no cover
     HAVE_EXCEL = False
 
 
 def to_excel(types, rows, result_format, query_string):
     assert result_format in ('xls', 'xlsx', 'ods')
-    respIO = io.BytesIO()
+    resp = io.BytesIO()
     book = pyexcel.Book(OrderedDict([
         ('Results', _result_array(types, rows)),
         ('Query', [['Query'], [query_string]])
     ]))
-    book.save_to_memory(result_format, respIO)
-    respIO.seek(0)
-    return respIO
+    book.save_to_memory(result_format, resp)
+    resp.seek(0)
+    return resp
 
 
 def to_csv(types, rows):
-    respIO = io.StringIO()
+    resp = io.StringIO()
     result_array = _result_array(types, rows)
-    csv.writer(respIO).writerows(result_array)
-    return io.BytesIO(respIO.getvalue().encode('utf-8'))
+    csv.writer(resp).writerows(result_array)
+    return io.BytesIO(resp.getvalue().encode('utf-8'))
 
 
 def _result_array(types, rows):
@@ -46,10 +46,15 @@ def _row_to_pyexcel(row, header):
             result.append(value)
             continue
         type_ = column[1]
-        if str(type_) == "<class 'decimal.Decimal'>":
+        if type_ == Decimal:
             result.append(float(value))
-        elif str(type_) == "<class 'int'>":
-            result.append(int(value))
-        else:
+        elif type_ == int:
+            result.append(value)
+        elif type_ == set:
+            result.append(' '.join(value))
+        elif type_ == datetime.date:
             result.append(str(value))
+        else:
+            assert isinstance(value, str)
+            result.append(value)
     return result

@@ -1,29 +1,25 @@
 {% extends "_layout.html" %}
 {% set active_page = 'income_statement' %}
-
-{% import "_charts.html" as charts with context %}
+{% import '_tree_table.html' as tree_table with context %}
 
 {% block content %}
     {{ charts.skeleton() }}
 
-    {{ charts.interval_totals(interval, [api.options['name_income'], api.options['name_expenses']], label=_('Net Profit')) }}
-    {{ charts.interval_totals(interval, api.options['name_income'], label=_('Income')) }}
-    {{ charts.interval_totals(interval, api.options['name_expenses'], label=_('Expenses')) }}
+    {{ charts.interval_totals(interval, [ledger.options['name_income'], ledger.options['name_expenses']], label=_('Net Profit')) }}
+    {{ charts.interval_totals(interval, ledger.options['name_income'], label=_('Income')) }}
+    {{ charts.interval_totals(interval, ledger.options['name_expenses'], label=_('Expenses')) }}
 
-    {{ charts.treemap(api.options['name_income']) }}
-    {{ charts.treemap(api.options['name_expenses']) }}
+    {{ charts.hierarchy(ledger.options['name_expenses']) }}
+    {{ charts.hierarchy(ledger.options['name_income']) }}
 
-    {{ charts.sunburst(api.options['name_expenses']) }}
-    {{ charts.sunburst(api.options['name_income']) }}
-
-    <div class="halfleft">
-        {% with table_title=_('Income'), real_accounts=api.balances(api.options['name_income']), totals=True %}
-            {% include "_tree_table.html" %}
-        {% endwith %}
-    </div>
-    <div class="halfright">
-        {% with table_title=_('Expenses'), real_accounts=api.balances(api.options['name_expenses']), totals=True %}
-            {% include "_tree_table.html" %}
-        {% endwith %}
+    <div class="row">
+        <div class="column">
+            <h3>{{ ledger.options['name_income'] }}</h3>
+            {{ tree_table.tree(ledger.root_account|get_or_create(ledger.options['name_income'])) }}
+        </div>
+        <div class="column">
+            <h3>{{ ledger.options['name_expenses'] }}</h3>
+            {{ tree_table.tree(ledger.root_account|get_or_create(ledger.options['name_expenses'])) }}
+        </div>
     </div>
 {% endblock %}

@@ -1,65 +1,132 @@
-require('jquery-stupid-table/stupidtable');
-require('jquery-dragster');
+import 'es6-promise';
+import 'whatwg-fetch';
+import 'classlist.js';
+import 'element-closest';
 
-const charts = require('./charts');
-const clipboard = require('./clipboard');
-const filters = require('./filters');
-const keyboardShortcuts = require('./keyboard-shortcuts');
-const journal = require('./journal');
-const treeTable = require('./tree-table');
-const documentsUpload = require('./documents-upload');
+import { $, $$, _, handleJSON } from './helpers';
+import e from './events';
+import './../sass/style.scss';
 
-// expose jquery to global context
-window.$ = $;
+import initCharts from './charts';
+import initClipboard from './clipboard';
+import initDocumentsUpload from './documents-upload';
+import initEditor from './editor';
+import { initFilters, updateFilters } from './filters';
+import initJournal from './journal';
+import { initKeyboardShortcuts, updateKeyboardShortcuts } from './keyboard-shortcuts';
+import initRouter from './router';
+import initSort from './sort';
+import initTransactionForm from './transaction-form';
+import initTreeTable from './tree-table';
 
-$(document).ready(() => {
-  $('table.sortable').stupidtable();
+// These parts of the page should not change.
+// So they only need to be initialized once.
+function initPage() {
+  window.favaTranslations = JSON.parse($('#translations').innerHTML);
+  initFilters();
+  initKeyboardShortcuts();
+  initTransactionForm();
 
-  // Setup filters form
-  filters.initFilters();
+  $$('.overlay-wrapper').forEach((el) => {
+    el.addEventListener('mousedown', (event) => {
+      if (event.target.classList.contains('overlay-wrapper') ||
+          event.target.classList.contains('close-overlay')) {
+        el.classList.remove('shown');
+      }
+    });
+  });
 
-  // Global keyboard shortcuts
-  keyboardShortcuts.global();
+  $('#aside-button').addEventListener('click', (event) => {
+    event.preventDefault();
+    $('aside').classList.toggle('active');
+    $('#aside-button').classList.toggle('active');
+  });
 
-  // Tree-expanding
-  if ($('.tree-table').length) {
-    treeTable.initTreeTable();
-  }
+  $.delegate($('#notifications'), 'click', 'li', (event) => {
+    event.target.closest('li').remove();
+  });
+}
 
-  // Charts
-  if ($('#chart-container').length) {
-    charts.initCharts();
-    keyboardShortcuts.charts();
-  }
+let pageData;
 
-  // Journal
-  if ($('#journal-table').length) {
-    journal.initJournal();
-    keyboardShortcuts.journal();
-  }
-
-  // Clipboard
-  if ($('.status-indicator').length) {
-    clipboard.initClipboard();
-  }
-
-  // Documents upload
-  if ($('.tree-table').length || $('h1.droptarget').length) {
-    documentsUpload.initDocumentsUpload();
-  }
-
-  // Overlays
-  $('.overlay-wrapper').click((e) => {
-    e.preventDefault();
-    if ($(e.target).hasClass('overlay-wrapper') || $(e.target).hasClass('close-overlay')) {
-      $('.overlay-wrapper').hide();
+function setSelectedLink() {
+  $$('aside a').forEach((el) => {
+    el.classList.remove('selected');
+    if (el.getAttribute('href').startsWith(window.location.pathname)) {
+      el.classList.add('selected');
     }
   });
+}
 
-  $('#aside_button').click((e) => {
-    e.preventDefault();
-    $("aside").toggleClass("active");
-    $("#aside_button").toggleClass("active");
-    return false;
+e.on('page-loaded', () => {
+  window.favaAPI = JSON.parse($('#ledger-data').innerHTML);
+  updateFilters();
+  updateKeyboardShortcuts();
+
+  initCharts();
+  initClipboard();
+  initDocumentsUpload();
+  initEditor();
+  initJournal();
+  initSort();
+  initTreeTable();
+
+  pageData = JSON.parse($('#page-data').innerHTML);
+  document.title = pageData.documentTitle;
+  $('h1 strong').innerHTML = pageData.pageTitle;
+  $('#reload-page').classList.add('hidden');
+  setSelectedLink();
+});
+
+e.on('file-modified', () => {
+  $.fetch(`${window.favaAPI.baseURL}_aside/`)
+    .then(response => response.text())
+    .then((html) => {
+      $('aside').innerHTML = html;
+      setSelectedLink();
+    });
+});
+
+// Notifications
+e.on('info', (msg) => {
+  $('#notifications').insertAdjacentHTML('beforeend', `<li>${msg}</li>`);
+});
+
+e.on('reload-warning', (msg) => {
+  $('#notifications').insertAdjacentHTML('beforeend', `<li class="warning">${msg}</li>`);
+  const warning = $('#notifications').lastChild;
+  warning.addEventListener('click', (event) => {
+    event.preventDefault();
+    warning.remove();
+    e.trigger('reload');
   });
+  setTimeout(() => {
+    warning.remove();
+  }, 5000);
+});
+
+e.on('error', (msg) => {
+  $('#notifications').insertAdjacentHTML('beforeend', `<li class="error">${msg}</li>`);
+});
+
+function doPoll() {
+  $.fetch(`${window.favaAPI.baseURL}api/changed/`)
+    .then(handleJSON)
+    .then((data) => {
+      if (data.changed) {
+        $('#reload-page').classList.remove('hidden');
+        e.trigger('file-modified');
+        e.trigger('reload-warning', _('File change detected. Click to reload.'));
+      }
+    }, () => {})
+    .then(() => {
+      setTimeout(doPoll, 5000);
+    });
+}
+
+$.ready().then(() => {
+  initPage();
+  initRouter();
+  e.trigger('page-loaded');
+  setTimeout(doPoll, 5000);
 });
