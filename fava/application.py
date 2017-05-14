@@ -35,9 +35,10 @@ from fava.json_api import json_api
 from fava.util import slugify, resource_path
 from fava.util.excel import HAVE_EXCEL
 
-app = Flask(__name__,  # pylint: disable=invalid-name
-            template_folder=resource_path('templates'),
-            static_folder=resource_path('static'))
+app = Flask(  # pylint: disable=invalid-name
+    __name__,
+    template_folder=resource_path('templates'),
+    static_folder=resource_path('static'))
 app.register_blueprint(json_api, url_prefix='/<bfile>/api')
 
 app.json_encoder = FavaJSONEncoder
@@ -53,19 +54,20 @@ app.config['HELP_PAGES'] = HELP_PAGES
 app.config['LEDGERS'] = {}
 
 REPORTS = [
-    '_aside',
     'balance_sheet',
+    'commodities',
     'events',
+    'editor',
     'errors',
+    'extract',
     'holdings',
+    'import',
     'income_statement',
     'journal',
     'options',
-    'statistics',
-    'commodities',
-    'editor',
-    'trial_balance',
     'query',
+    'statistics',
+    'trial_balance',
 ]
 
 
@@ -94,7 +96,8 @@ def get_locale():
     """
     if g.ledger.fava_options['language']:
         return g.ledger.fava_options['language']
-    return request.accept_languages.best_match(['de', 'en', 'es', 'zh'])
+    return request.accept_languages.best_match(
+        ['de', 'en', 'es', 'zh', 'nl', 'fr', 'pt'])
 
 
 for _, function in inspect.getmembers(template_filters, inspect.isfunction):
@@ -114,16 +117,10 @@ def url_for_current(**kwargs):
 @app.template_global()
 def url_for_source(**kwargs):
     """URL to source file (possibly link to external editor)."""
-    args = request.view_args.copy()
-    args.update(kwargs)
     if g.ledger.fava_options['use-external-editor']:
-        if 'line' in args:
-            return "beancount://%(file_path)s?lineno=%(line)d" % args
-        else:
-            return "beancount://%(file_path)s" % args
-    else:
-        args['report_name'] = 'editor'
-        return url_for('report', **args)
+        return "beancount://{}?lineno={}".format(
+            kwargs.get('file_path'), kwargs.get('line', 1))
+    return url_for('report', report_name='editor', **kwargs)
 
 
 @app.context_processor
@@ -140,12 +137,8 @@ def _template_context():
 
 @app.before_request
 def _perform_global_filters():
-    if not g.ledger.options['operating_currency']:
-        flash('No operating currency specified. '
-              'Please add one to your beancount file.')
-
     g.filters = {
-        name: request.args.get(name, None)
+        name: request.args.get(name)
         for name in ['account', 'from', 'payee', 'tag', 'time']
     }
 
@@ -165,7 +158,7 @@ def _incognito(response):
     """Replace all numbers with 'X'."""
     ledger = getattr(g, 'ledger', None)
     if (ledger and ledger.fava_options['incognito'] and
-       response.content_type.startswith('text/html')):
+            response.content_type.startswith('text/html')):
         is_editor = (request.endpoint == 'report' and
                      request.view_args['report_name'] == 'editor')
         if not is_editor:
@@ -185,6 +178,8 @@ def _inject_filters(endpoint, values):
         return
     if 'interval' not in values:
         values['interval'] = request.args.get('interval')
+    if 'conversion' not in values:
+        values['conversion'] = request.args.get('conversion')
     for filter_name in ['account', 'from', 'payee', 'tag', 'time']:
         if filter_name not in values:
             values[filter_name] = g.filters[filter_name]
@@ -198,10 +193,12 @@ def _pull_beancount_file(_, values):
     if g.beancount_file_slug not in app.config['FILE_SLUGS']:
         abort(404)
     g.ledger = app.config['LEDGERS'][g.beancount_file_slug]
+    g.conversion = request.args.get('conversion')
 
 
 @app.errorhandler(FavaAPIException)
 def fava_api_exception(error):
+    """Handle API errors."""
     return error.message, 400
 
 
@@ -222,14 +219,14 @@ def index():
 def account(name, subreport='journal'):
     """The account report."""
     assert subreport in ['journal', 'balances', 'changes']
-    return render_template('account.html', account_name=name,
-                           subreport=subreport)
+    return render_template(
+        'account.html', account_name=name, subreport=subreport)
 
 
 @app.route('/<bfile>/document/', methods=['GET'])
 def document():
     """Download a document."""
-    file_path = request.args.get('file_path', None)
+    file_path = request.args.get('file_path')
     document_path = g.ledger.document_path(file_path)
     directory = os.path.dirname(document_path)
     filename = os.path.basename(document_path)
@@ -239,8 +236,8 @@ def document():
 @app.route('/<bfile>/statement/', methods=['GET'])
 def statement():
     """Download a statement file."""
-    entry_hash = request.args.get('entry_hash', None)
-    key = request.args.get('key', None)
+    entry_hash = request.args.get('entry_hash')
+    key = request.args.get('key')
     document_path = g.ledger.statement_path(entry_hash, key)
     directory = os.path.dirname(document_path)
     filename = os.path.basename(document_path)
@@ -286,8 +283,10 @@ def help_page(page_slug='_index'):
     html = markdown2.markdown_path(
         os.path.join(app.config['HELP_DIR'], page_slug + '.md'),
         extras=['fenced-code-blocks', 'tables'])
-    return render_template('help.html', page_slug=page_slug,
-                           help_html=render_template_string(html))
+    return render_template(
+        'help.html',
+        page_slug=page_slug,
+        help_html=render_template_string(html))
 
 
 @app.route('/jump')
@@ -313,6 +312,6 @@ def jump():
             continue
         qs_dict.setlist(key, values)
 
-    redirect_url = url.replace(query=werkzeug.urls.url_encode(qs_dict,
-                                                              sort=True))
+    redirect_url = url.replace(query=werkzeug.urls.url_encode(
+        qs_dict, sort=True))
     return redirect(werkzeug.urls.url_unparse(redirect_url))

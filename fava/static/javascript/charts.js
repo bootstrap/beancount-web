@@ -27,7 +27,7 @@ function formatCurrency(number) {
   } else {
     str = formatCurrencyWithoutComma(number);
   }
-  if (window.favaAPI.incognito) {
+  if (window.favaAPI.favaOptions.incognito) {
     str = str.replace(/[0-9]/g, 'X');
   }
   return str;
@@ -36,7 +36,7 @@ function formatCurrency(number) {
 const formatCurrencyShortDefault = format('.2s');
 function formatCurrencyShort(number) {
   let str = formatCurrencyShortDefault(number);
-  if (window.favaAPI.incognito) {
+  if (window.favaAPI.favaOptions.incognito) {
     str = str.replace(/[0-9]/g, 'X');
   }
   return str;
@@ -82,7 +82,7 @@ function addInternalNodesAsLeaves(node) {
 function makeAccountLink(selection) {
   selection
     .on('click', (d) => {
-      window.location = window.accountUrl.replace('REPLACEME', d.data.account);
+      window.location = window.favaAPI.accountURL.replace('REPLACEME', d.data.account);
       event.stopPropagation();
     });
 }
@@ -155,9 +155,6 @@ class TreeMapChart extends BaseChart {
   constructor(svg) {
     super();
     this.svg = svg;
-
-    this.x = scaleLinear();
-    this.y = scaleLinear();
     this.treemap = treemap();
 
     this.canvas = svg.classed('treemap', true);
@@ -179,9 +176,6 @@ class TreeMapChart extends BaseChart {
     }
 
     this.selections.cells.append('rect')
-      .on('click', (d) => {
-        this.zoom(this.currentNode === d.parent ? this.root : d.parent, 200);
-      })
       .attr('fill', (d) => {
         const node = d.data.dummy ? d.parent : d;
         if (node.parent === this.root || !node.parent) {
@@ -197,7 +191,6 @@ class TreeMapChart extends BaseChart {
       .style('opacity', 0)
       .call(makeAccountLink);
 
-    this.currentNode = this.root;
     this.update();
     return this;
   }
@@ -209,8 +202,6 @@ class TreeMapChart extends BaseChart {
         .attr('width', this.width)
         .attr('height', this.height);
     this.treemap.size([this.width, this.height]);
-    this.x.range([0, this.width]);
-    this.y.range([0, this.height]);
 
     if (this.selections.empty) {
       this.selections.empty
@@ -218,36 +209,26 @@ class TreeMapChart extends BaseChart {
           .attr('y', this.height / 2);
     }
 
-    this.zoom(this.currentNode, 0);
-  }
-
-  zoom(node, duration) {
     this.treemap(this.root);
-
-    const kx = this.width / (node.x1 - node.x0);
-    const ky = this.height / (node.y1 - node.y0);
-    this.x.domain([node.x0, node.x1]);
-    this.y.domain([node.y0, node.y1]);
 
     function labelOpacity(d) {
       const length = this.getComputedTextLength();
-      return (kx * (d.x1 - d.x0) > length + 4 && ky * (d.y1 - d.y0) > 14) ? 1 : 0;
+      return ((d.x1 - d.x0) > length + 4 && (d.y1 - d.y0) > 14) ? 1 : 0;
     }
 
-    const t = this.selections.cells.transition()
-      .duration(duration)
-      .attr('transform', d => `translate(${this.x(d.x0)},${this.y(d.y0)})`);
+    this.selections.cells
+      .attr('transform', d => `translate(${d.x0},${d.y0})`);
 
-    t.select('rect')
-      .attr('width', d => kx * (d.x1 - d.x0))
-      .attr('height', d => ky * (d.y1 - d.y0));
+    this.selections.cells
+      .select('rect')
+      .attr('width', d => d.x1 - d.x0)
+      .attr('height', d => d.y1 - d.y0);
 
-    t.select('text')
-      .attr('x', d => (kx * (d.x1 - d.x0)) / 2)
-      .attr('y', d => (ky * (d.y1 - d.y0)) / 2)
+    this.selections.cells
+      .select('text')
+      .attr('x', d => (d.x1 - d.x0) / 2)
+      .attr('y', d => (d.y1 - d.y0) / 2)
       .style('opacity', labelOpacity);
-
-    this.currentNode = node;
   }
 }
 
@@ -366,6 +347,7 @@ class BarChart extends BaseChart {
     this.x1 = scaleBand();
     this.y = scaleLinear();
     this.selections = {};
+    this.maxColumnWidth = 100;
 
     this.xAxis = axisBottom(this.x0)
       .tickSizeOuter(0);
@@ -392,13 +374,16 @@ class BarChart extends BaseChart {
       .enter()
       .append('g')
         .attr('class', 'group')
-        .call(addTooltip, this.tooltipText)
-        .on('click', (d) => {
-          timeFilter(d.date);
-        });
+        .call(addTooltip, this.tooltipText);
 
     this.selections.groupboxes = this.selections.groups.append('rect')
       .attr('class', 'group-box');
+
+    this.selections.axisgroupboxes = this.selections.groups.append('rect')
+      .on('click', (d) => {
+        timeFilter(d.date);
+      })
+      .attr('class', 'axis-group-box');
 
     this.selections.bars = this.selections.groups.selectAll('.bar')
         .data(d => d.values)
@@ -418,7 +403,11 @@ class BarChart extends BaseChart {
   }
 
   update() {
-    this.width = parseInt(container.style('width'), 10) - this.margin.left - this.margin.right;
+    const screenWidth = parseInt(container.style('width'), 10) - this.margin.left - this.margin.right;
+    const maxWidth = this.selections.groups.size() * this.maxColumnWidth;
+    const offset = this.margin.left + (Math.max(0, screenWidth - maxWidth) / 2);
+
+    this.width = Math.min(screenWidth, maxWidth);
     this.height = 250 - this.margin.top - this.margin.bottom;
 
     this.y.range([this.height, 0]);
@@ -426,9 +415,9 @@ class BarChart extends BaseChart {
     this.x1.range([0, this.x0.bandwidth()]);
 
     this.svg
-      .attr('width', this.width + this.margin.left + this.margin.right)
+      .attr('width', screenWidth + this.margin.left + this.margin.right)
       .attr('height', this.height + this.margin.top + this.margin.bottom);
-    this.canvas.attr('transform', `translate(${this.margin.left},${this.margin.top})`);
+    this.canvas.attr('transform', `translate(${offset},${this.margin.top})`);
 
     this.yAxis.tickSize(-this.width, 0);
     this.selections.xAxis.attr('transform', `translate(0,${this.height})`);
@@ -443,6 +432,11 @@ class BarChart extends BaseChart {
     this.selections.groupboxes
       .attr('width', this.x0.bandwidth())
       .attr('height', this.height);
+
+    this.selections.axisgroupboxes
+      .attr('width', this.x0.bandwidth())
+      .attr('height', this.margin.bottom)
+      .attr('transform', `translate(0,${this.height})`);
 
     this.selections.budgets
       .attr('width', this.x1.bandwidth())
@@ -765,6 +759,17 @@ function updateChart() {
   }
 }
 
+function getOperatingCurrencies() {
+  const conversion = $('#conversion').value;
+  if (conversion && conversion !== 'at_cost' && conversion !== 'at_value'
+      && window.favaAPI.options.operating_currency.indexOf(conversion) === -1) {
+    const currencies = window.favaAPI.options.operating_currency.slice();
+    currencies.push(conversion);
+    return currencies;
+  }
+  return window.favaAPI.options.operating_currency;
+}
+
 export default function initCharts() {
   tooltip = select('#tooltip');
   tooltip.style('opacity', 0);
@@ -832,7 +837,7 @@ export default function initCharts() {
       }
       case 'bar': {
         const series = chart.interval_totals.map(d => ({
-          values: window.favaAPI.options.operating_currency.map(name => ({
+          values: getOperatingCurrencies().map(name => ({
             name,
             value: +d.totals[name] || 0,
             budget: +d.budgets[name] || 0,
@@ -845,7 +850,11 @@ export default function initCharts() {
           .set('tooltipText', (d) => {
             let text = '';
             d.values.forEach((a) => {
-              text += `${formatCurrency(a.value)} ${a.name}<br>`;
+              text += `${formatCurrency(a.value)} ${a.name}`;
+              if (a.budget) {
+                text += ` / ${formatCurrency(a.budget)} ${a.name}`;
+              }
+              text += '<br>';
             });
             text += `<em>${d.label}</em>`;
             return text;
@@ -870,14 +879,15 @@ export default function initCharts() {
         addInternalNodesAsLeaves(chart.root);
         const roots = {};
 
-        window.favaAPI.options.operating_currency.forEach((currency) => {
+        const operatingCurrencies = getOperatingCurrencies();
+        operatingCurrencies.forEach((currency) => {
           roots[currency] = hierarchy(chart.root)
             .sum(d => d.balance[currency] * chart.modifier)
             .sort((a, b) => b.value - a.value);
         });
 
         charts[chartId] = new HierarchyContainer(chartContainer(chartId, chart.label))
-            .set('currencies', window.favaAPI.options.operating_currency)
+            .set('currencies', operatingCurrencies)
             .draw(roots);
 
         break;

@@ -3,6 +3,7 @@
 This mainly serves as an example how Fava's extension systems, which only
 really does hooks at the moment, works.
 """
+# pylint: disable=missing-docstring
 
 import os
 import subprocess
@@ -24,6 +25,6 @@ class AutoCommit(FavaExtensionBase):
         message = 'autocommit: metadata added'
         self._run(["git", "commit", "-am", message])
 
-    def after_insert_transaction(self, transaction):
-        message = 'autocommit: transaction on {}'.format(transaction.date)
+    def after_insert_entry(self, entry):
+        message = 'autocommit: entry on {}'.format(entry.date)
         self._run(["git", "commit", "-am", message])

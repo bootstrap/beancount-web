@@ -2,6 +2,9 @@
 
 import os
 
+from beancount.core import data
+from beancount.parser.printer import format_entry
+
 from fava.core.helpers import FavaAPIException, FavaModule
 
 
@@ -69,23 +72,32 @@ class FileModule(FavaModule):
 
         Also, prevent duplicate keys.
         """
+        self.ledger.changed()
         entry = self.ledger.get_entry(entry_hash)
         key = next_key(basekey, entry.meta)
-        insert_metadata_in_file(entry.meta['filename'], entry.meta['lineno']-1,
-                                key, value)
+        insert_metadata_in_file(entry.meta['filename'],
+                                entry.meta['lineno'] - 1, key, value)
         self.ledger.extensions.run_hook('after_insert_metadata', entry, key,
                                         value)
 
-    def insert_transaction(self, transaction):
-        """Insert a transaction.
+    def insert_entries(self, entries):
+        """Insert entries.
 
         Args:
-            transaction: A Transaction.
+            entries: A list of entries.
 
         """
-        insert_transaction(transaction, self.list_sources())
-        self.ledger.extensions.run_hook('after_insert_transaction',
-                                        transaction)
+        self.ledger.changed()
+        for entry in sorted(entries, key=incomplete_sortkey):
+            insert_entry(entry,
+                         self.list_sources(),
+                         self.ledger.fava_options['insert-entry'])
+            self.ledger.extensions.run_hook('after_insert_entry', entry)
+
+
+def incomplete_sortkey(entry):
+    """Sortkey for entries that might have incomplete metadata."""
+    return (entry.date, data.SORT_ORDER.get(type(entry), 0))
 
 
 def next_key(basekey, keys):
@@ -124,66 +136,63 @@ def insert_metadata_in_file(filename, lineno, key, value):
         file.write(contents)
 
 
-def insert_transaction(transaction, filenames):
-    """Insert a transaction.
+def insert_entry(entry, filenames, insert_options):
+    """Insert an entry.
 
     Args:
-        transaction: A Transaction.
+        entry: An entry.
         filenames: List of filenames.
+        insert_options: List of InsertOption. Note that the line numbers of the
+            options might be updated.
 
     """
-    filename, lineno = find_insert_marker(filenames)
-    content = _render_transaction(transaction)
+    if isinstance(entry, data.Transaction):
+        accounts = reversed([p.account for p in entry.postings])
+    else:
+        accounts = [entry.account]
+    filename, lineno = find_insert_position(accounts, entry.date,
+                                            insert_options, filenames)
+    content = _format_entry(entry) + '\n'
 
     with open(filename, "r") as file:
         contents = file.readlines()
 
-    contents.insert(lineno, '\n' + content + '\n')
+    contents.insert(lineno, content)
 
     with open(filename, "w") as file:
         file.writelines(contents)
 
+    for index, option in enumerate(insert_options):
+        if option.filename == filename and option.lineno > lineno:
+            insert_options[index] = option._replace(
+                lineno=lineno + content.count('\n') + 1)
 
-def _render_transaction(transaction):
-    """Render out a transaction as string.
+
+def _format_entry(entry):
+    """Wrapper that strips unnecessary whitespace from format_entry."""
+    string = format_entry(entry)
+    return '\n'.join((line.rstrip() for line in string.split('\n')))
+
+
+def find_insert_position(accounts, date, insert_options, filenames):
+    """Find insert position for an account.
 
     Args:
-        transaction: A Transaction.
-
-    Returns:
-        A string containing the transaction in Beancount's format.
-
+        accounts: A list of accounts.
+        date: A date. Only InsertOptions before this date will be considered.
+        insert_options: A list of InsertOption.
+        filenames: List of Beancount files.
     """
-    lines = ['{} {} "{}" "{}"'.format(
-        transaction.date, transaction.flag, transaction.payee,
-        transaction.narration)]
+    position = None
 
-    if transaction.meta and len(transaction.meta.keys()) > 0:
-        for key, value in transaction.meta.items():
-            lines.append('    {}: "{}"'.format(key, value))
+    for account in accounts:
+        for insert_option in insert_options:
+            if insert_option.date >= date:
+                break
+            if insert_option.re.match(account):
+                position = (insert_option.filename, insert_option.lineno - 1)
 
-    for posting in transaction.postings:
-        line = '    {}'.format(posting.account)
-        if posting.units.number or posting.units.currency:
-            number_length = str(posting.units.number).find('.')
-            line += ' ' * max(49 - len(posting.account) - number_length, 2)
-            line += '{} {}'.format(posting.units.number or '',
-                                   posting.units.currency or '')
-        lines.append(line)
+    if not position:
+        position = filenames[0], len(open(filenames[0]).readlines()) + 1
 
-    return '\n'.join(lines)
-
-
-def find_insert_marker(filenames):
-    """Searches for the insert marker and returns (filename, lineno).
-    Defaults to the first file and last line if not found.
-    """
-    marker = 'FAVA-INSERT-MARKER'
-
-    for filename in filenames:
-        with open(filename, "r") as file:
-            for lineno, linetext in enumerate(file):
-                if marker in linetext:
-                    return filename, lineno
-
-    return filenames[0], len(open(filenames[0]).readlines())+1
+    return position

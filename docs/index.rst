@@ -19,7 +19,10 @@ If you are new to Fava and Beancount, begin with the :doc:`usage` guide.
 
 If you are already familiar with Beancount, this is enough to get you up and running::
 
-    pip3 install beancount-fava
+    pip3 install fava
     fava ledger.beancount
 
-and visit the web interface at `http://localhost:5000 <http://localhost:5000>`__.
+and visit the web interface at `http://localhost:5000
+<http://localhost:5000>`__ (alternatively, for the GUI version of Fava, head to
+the `Releases <https://github.com/beancount/fava/releases>`__ page on Github to
+download the latest version for your platform).

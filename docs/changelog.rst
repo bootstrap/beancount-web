@@ -1,6 +1,57 @@
 Changelog
 =========
 
+v1.4 (in development)
+---------------------
+
+Fava now provides an interface for Beancount's import system that allows you to
+import transactions from your bank for example.
+
+Fava can now show your balances at market value or convert them to a single
+currency if your file contains the necessary price information.
+
+We now also provide a compiled GUI version of Fava for Linux and MacOS. This
+version might still be a bit buggy so any feedback/help on it is very welcome.
+
+Other changes:
+
+- The ``insert-entry`` option can be used to control where transactions are
+  inserted.
+- The transaction form now accepts tags and links in the narration field.
+- Budgets are now accumulated over all children where appropriate.
+- As always, several bugs have been fixed.
+
+Thanks to :user:`TZdyrski` and :user:`Akuukis` for their contributions.
+
+v1.3 (March 15th, 2017)
+-----------------------
+
+The translations of Fava are now on `POEditor.com
+<https://poeditor.com/projects/view?id=90283>`__, which has helped us get
+translations in five more languages: Chinese (simplified), Dutch, French,
+Portuguese, and Spanish. A big thank you to the new translators!
+
+The transaction form has been improved, it now supports adding metadata and the
+suggestions will be ranked by how often and recently they occur (using
+exponential decay).
+
+The Query page supports all commands of the ``bean-query`` shell and shares its
+history of recently used queries.
+
+Fava has gained a basic extension mechanism. Extensions allow you to run hooks
+at various points, e.g., after adding a transaction. They are specified using
+the ``extensions`` option and for an example, see the ``fava.ext.auto_commit``
+extension.
+
+Other changes:
+
+- The default sort order in journals has been reversed so that the most recent
+  entries come first.
+- The new ``incognito`` option can be used to obscure all numbers.
+- As always, several bugs have been fixed.
+
+Thanks to :user:`johannesharms` and :user:`xentac` for their contributions.
+
 v1.2 (December 25th, 2016)
 --------------------------
 

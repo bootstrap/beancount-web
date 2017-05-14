@@ -54,15 +54,15 @@
     <script type="application/json" id="page-data">{{ {
         'documentTitle': '{} - {}'.format(short_title, ledger.options.title),
         'pageTitle': page_title,
-        'accountURL': url_for('account', name='REPLACEME'),
+        'errors': ledger.errors|length,
     }|tojson|safe }}</script>
     <script type="application/json" id="ledger-data">{{ {
+        'accountURL': url_for('account', name='REPLACEME'),
         'baseURL': url_for('index'),
         'accounts': ledger.attributes.accounts,
         'options': ledger.options,
-        'incognito': ledger.fava_options['incognito'],
+        'favaOptions': ledger.fava_options,
         'tags': ledger.attributes.tags,
-        'editor-print-margin-column': ledger.fava_options['editor-print-margin-column'],
     }|tojson|safe }}</script>
     <script type="application/json" id="translations">{{ {
         'Save': _('Save'),
