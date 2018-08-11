@@ -1,12 +1,67 @@
 import datetime
 
-from beancount.core import account
-from beancount.core.data import Transaction
 import pytest
+from beancount.core import account
 
-from fava.core.filters import (
-    FilterException, AccountFilter, FromFilter, PayeeFilter, TagFilter,
-    TimeFilter)
+from fava.core.filters import (AccountFilter, AdvancedFilter, TimeFilter,
+                               FilterSyntaxLexer, Match)
+from fava.core.helpers import FilterException
+
+LEX = FilterSyntaxLexer().lex
+
+
+def test_match():
+    assert Match('asdf')('asdf')
+    assert Match('asdf')('asdfasdf')
+    assert not Match('asdf')('aasdfasdf')
+    assert Match('(((')('(((')
+
+
+def test_lexer_basic():
+    data = "#some_tag ^some_link -^some_link"
+    assert [(tok.type, tok.value) for tok in LEX(data)] == [
+        ('TAG', 'some_tag'),
+        ('LINK', 'some_link'),
+        ('-', '-'),
+        ('LINK', 'some_link'),
+    ]
+    data = "'string' string \"string\""
+    assert [(tok.type, tok.value) for tok in LEX(data)] == [
+        ('STRING', 'string'),
+        ('STRING', 'string'),
+        ('STRING', 'string'),
+    ]
+    with pytest.raises(FilterException):
+        list(LEX('|'))
+
+
+def test_lexer_key():
+    data = "payee:asdfasdf ^some_link somekey:\"testtest\" "
+    assert [(tok.type, tok.value) for tok in LEX(data)] == [
+        ('KEY', 'payee'),
+        ('STRING', 'asdfasdf'),
+        ('LINK', 'some_link'),
+        ('KEY', 'somekey'),
+        ('STRING', 'testtest'),
+    ]
+
+
+def test_lexer_parentheses():
+    data = "(payee:asdfasdf ^some_link) (somekey:'testtest')"
+    assert [(tok.type, tok.value) for tok in LEX(data)] == [
+        ('(', '('),
+        ('KEY', 'payee'),
+        ('STRING', 'asdfasdf'),
+        ('LINK', 'some_link'),
+        (')', ')'),
+        ('(', '('),
+        ('KEY', 'somekey'),
+        ('STRING', 'testtest'),
+        (')', ')'),
+    ]
+
+
+FILTER = AdvancedFilter()
 
 
 def test_filterexception():
@@ -16,30 +71,53 @@ def test_filterexception():
     assert str(exception) == 'error'
     assert str(exception) == exception.message
 
-
-def test_from_filter(example_ledger):
-    from_filter = FromFilter()
-
-    from_filter.set('has_account("Assets:US:ETrade")')
-    filtered_entries = from_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert len(filtered_entries) == 53
+    with pytest.raises(FilterException):
+        FILTER.set('who:"fff')
+        assert str(exception) == 'Illegal character "\"" in filter: who:"fff'
 
     with pytest.raises(FilterException):
-        from_filter.set('invalid')
+        FILTER.set('any(who:"Martin"')
+        assert str(exception) == 'Failed to parse filter: any(who:"Martin"'
 
-    from_filter.set('')
-    filtered_entries = from_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert len(filtered_entries) == len(example_ledger.all_entries)
+
+@pytest.mark.parametrize('string,number', [
+    ('any(account:"Assets:US:ETrade")', 48),
+    ('all(-account:"Assets:US:ETrade")', 1825-48),
+    ('#test', 2),
+    ('#test,#nomatch', 2),
+    ('-#nomatch', 1825),
+    ('-#nomatch -#nomatch', 1825),
+    ('-#nomatch -#test', 1823),
+    ('-#test', 1823),
+    ('^test-link', 3),
+    ('^test-link,#test', 4),
+    ('^test-link -#test', 2),
+    ('payee:BayBook', 62),
+    ('BayBook', 62),
+    ('(payee:BayBook, #test,#nomatch) -#nomatch', 64),
+    ('payee:"BayBo.*"', 62),
+    ('payee:"baybo.*"', 62),
+    (r'number:"\d*"', 3),
+    ('not_a_meta_key:".*"', 0),
+    ('name:".*ETF"', 4),
+    ('name:".*ETF$"', 3),
+    ('name:".*etf"', 4),
+    ('name:".*etf$"', 3),
+])
+def test_advanced_filter(example_ledger, string, number):
+    FILTER.set(string)
+    filtered_entries = FILTER.apply(example_ledger.all_entries,
+                                    example_ledger.options)
+    assert len(filtered_entries) == number
+    FILTER.set('')
 
 
 def test_account_filter(example_ledger):
     account_filter = AccountFilter()
 
     account_filter.set('Assets')
-    filtered_entries = account_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
+    filtered_entries = account_filter.apply(example_ledger.all_entries,
+                                            example_ledger.options)
     assert len(filtered_entries) == 541
     assert all(map(
         lambda x: hasattr(x, 'account') and
@@ -48,8 +126,8 @@ def test_account_filter(example_ledger):
         filtered_entries))
 
     account_filter.set('.*US:State')
-    filtered_entries = account_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
+    filtered_entries = account_filter.apply(example_ledger.all_entries,
+                                            example_ledger.options)
     assert len(filtered_entries) == 67
 
 
@@ -59,79 +137,19 @@ def test_time_filter(example_ledger):
     time_filter.set('2017')
     assert time_filter.begin_date == datetime.date(2017, 1, 1)
     assert time_filter.end_date == datetime.date(2018, 1, 1)
-    filtered_entries = time_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
+    filtered_entries = time_filter.apply(example_ledger.all_entries,
+                                         example_ledger.options)
     assert len(filtered_entries) == 82
 
     time_filter.set('1000')
-    filtered_entries = time_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
+    filtered_entries = time_filter.apply(example_ledger.all_entries,
+                                         example_ledger.options)
     assert not filtered_entries
 
     time_filter.set(None)
-    filtered_entries = time_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
+    filtered_entries = time_filter.apply(example_ledger.all_entries,
+                                         example_ledger.options)
     assert len(filtered_entries) == len(example_ledger.all_entries)
 
     with pytest.raises(FilterException):
         time_filter.set('no_date')
-
-
-def test_tag_filter(example_ledger):
-    tag_filter = TagFilter()
-
-    tag_filter.set('#nomatch, ,')
-    filtered_entries = tag_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert all(map(
-        lambda x: isinstance(x, Transaction),
-        filtered_entries))
-    assert not filtered_entries
-
-    tag_filter.set('#test')
-    filtered_entries = tag_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert all(map(
-        lambda x: isinstance(x, Transaction),
-        filtered_entries))
-    assert len(filtered_entries) == 2
-
-    tag_filter.set('#test,#nomatch')
-    filtered_entries = tag_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert all(map(
-        lambda x: isinstance(x, Transaction),
-        filtered_entries))
-    assert len(filtered_entries) == 2
-
-    assert tag_filter.set('')
-    filtered_entries = tag_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert len(filtered_entries) == len(example_ledger.all_entries)
-
-
-def test_payee_filter(example_ledger):
-    payee_filter = PayeeFilter()
-
-    payee_filter.set('BayBook')
-    filtered_entries = payee_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert all(map(
-        lambda x: isinstance(x, Transaction),
-        filtered_entries))
-    assert len(filtered_entries) == 62
-
-    payee_filter.set('BayBo.*')
-    filtered_entries = payee_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert len(filtered_entries) == 62
-
-    payee_filter.set('asdfasdfasdvba')
-    filtered_entries = payee_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert not filtered_entries
-
-    payee_filter.set('')
-    filtered_entries = payee_filter.apply(
-        example_ledger.all_entries, example_ledger.options)
-    assert len(filtered_entries) == len(example_ledger.all_entries)

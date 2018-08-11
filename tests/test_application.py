@@ -1,24 +1,42 @@
+from textwrap import dedent
+
 import flask
 import pytest
 import werkzeug.urls
+import werkzeug.routing
 
-from fava.application import REPORTS
-
+from fava.application import REPORTS, static_url
 
 FILTER_COMBINATIONS = [
-    {'account': 'Assets'},
-    {'from': 'has_account("Assets")'},
-    {'time': '2015'},
-    {'payee': 'BayBook'},
-    {'tag': 'tag1, tag2'},
-    {'time': '2015', 'payee': 'BayBook'},
+    {
+        'account': 'Assets'
+    },
+    {
+        'from': 'has_account("Assets")'
+    },
+    {
+        'time': '2015'
+    },
+    {
+        'payee': 'BayBook'
+    },
+    {
+        'tag': 'tag1, tag2'
+    },
+    {
+        'time': '2015',
+        'payee': 'BayBook'
+    },
 ]
 
 
-@pytest.mark.parametrize('report,filters', [
-    (report, filters) for report in REPORTS for filters in FILTER_COMBINATIONS
-])
+@pytest.mark.parametrize('report,filters',
+                         [(report, filters) for report in REPORTS
+                          for filters in FILTER_COMBINATIONS])
 def test_reports(app, test_client, report, filters):
+    if report.startswith('_'):
+        return
+
     with app.test_request_context():
         app.preprocess_request()
         url = flask.url_for('report', report_name=report, **filters)
@@ -35,8 +53,8 @@ def test_reports(app, test_client, report, filters):
 def test_query(app, test_client, query_string, result_str):
     with app.test_request_context():
         app.preprocess_request()
-        url = flask.url_for('report', report_name='query',
-                            query_string=query_string)
+        url = flask.url_for(
+            'report', report_name='query', query_string=query_string)
 
     result = test_client.get(url)
     assert result.status_code == 200
@@ -67,13 +85,10 @@ def test_jump_handler(app, test_client, referer, jump_link, expect):
 
     Note: according to RFC 2616, Location: header should use an absolute URL.
     """
-    result = test_client.get(jump_link,
-                             headers=[('Referer', referer)])
+    result = test_client.get(jump_link, headers=[('Referer', referer)])
     with app.test_request_context():
         get_url = result.headers.get('Location', '')
-        expect_url = werkzeug.urls.url_join(
-            flask.url_for('root', _external=True),
-            expect)
+        expect_url = werkzeug.urls.url_join('http://localhost/', expect)
         assert result.status_code == 302
         assert get_url == expect_url
 
@@ -81,7 +96,7 @@ def test_jump_handler(app, test_client, referer, jump_link, expect):
 def test_incognito(app, test_client):
     with app.test_request_context():
         app.preprocess_request()
-        flask.g.ledger.fava_options['incognito'] = True
+        app.config['INCOGNITO'] = True
         url = flask.url_for('report', report_name='balance_sheet')
 
     result = test_client.get(url)
@@ -90,4 +105,57 @@ def test_incognito(app, test_client):
 
     with app.test_request_context():
         app.preprocess_request()
-        flask.g.ledger.fava_options['incognito'] = False
+        app.config['INCOGNITO'] = False
+
+
+def test_download_journal(app, test_client):
+    file_content = dedent("""\
+        ;; -*- mode: org; mode: beancount; -*-
+
+        option "title" "Example Beancount file - Journal Export"
+
+        option "operating_currency" "USD"
+        option "name_assets" "Assets"
+        option "name_liabilities" "Liabilities"
+        option "name_equity" "Equity"
+        option "name_income" "Income"
+        option "name_expenses" "Expenses"
+        plugin "beancount.plugins.auto_accounts"
+
+        2016-05-07 * "Jewel of Morroco" "Eating out alone"
+          Liabilities:US:Chase:Slate                       -25.30 USD
+          Expenses:Food:Restaurant                          25.30 USD
+
+    """)
+
+    with app.test_request_context():
+        app.preprocess_request()
+        url = flask.url_for('download_journal', time='2016-05-07')
+    result = test_client.get(url)
+    assert result.get_data(True) == file_content
+    assert result.headers['Content-Disposition'].startswith(
+        'attachment; filename="journal_')
+    assert result.headers['Content-Type'] == 'application/octet-stream'
+
+
+@pytest.mark.parametrize('filename,has_modified', [
+    ('not-a-real-file', False),
+    ('javascript/main.js', True),
+    ('css/style.css', True),
+])
+def test_static_url(app, filename, has_modified):
+    with app.test_request_context():
+        app.preprocess_request()
+        url = static_url(filename=filename)
+    assert url.startswith('/static/' + filename)
+    assert ('?mtime=' in url) == has_modified
+
+
+def test_static_url_no_filename(app):
+    with app.test_request_context():
+        app.preprocess_request()
+        try:
+            static_url()
+            assert False, "static_url without a filename should throw an error"
+        except werkzeug.routing.BuildError:
+            pass

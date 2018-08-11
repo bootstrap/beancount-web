@@ -12,14 +12,15 @@
   display: none;
   justify-content: center;
   left: 0;
+  overflow: auto;
   position: fixed;
   right: 0;
   top: 0;
-  z-index: 99;
+  z-index: var(--z-index-overlay);
+}
 
-  &.shown {
-    display: flex;
-  }
+.overlay-wrapper.shown {
+  display: flex;
 }
 
 .close-overlay {
@@ -34,69 +35,58 @@
   box-shadow: 0 0 20px var(--overlay-wrapper-background);
   cursor: auto;
   display: flex;
+  margin: .5em;
   max-height: 100%;
-  padding: 20px;
+  max-width: 767px;
+  padding: 1.5em;
   position: relative;
-  width: 767px;
-
-  & form,
-  & > div {
-    width: 100%;
-  }
-
-  & strong {
-    display: inline-block;
-    margin: 6px 0 5px;
-  }
-
-  & dt {
-    display: inline-block;
-    float: left;
-    font-weight: normal;
-    line-height: 1.8em;
-    padding-right: 10px;
-    text-align: right;
-    width: 170px;
-  }
-
-  & dd {
-    line-height: 1.8em;
-  }
-
-  & .fieldset {
-    margin-bottom: .5em;
-    padding: 0;
-
-    & label {
-      line-height: 33px;
-      width: 150px;
-    }
-
-    & input {
-      border: 1px solid color(var(--color-text) tint(50%));
-    }
-
-    &[type='submit'] {
-      margin: .5em .5em -.5em 0;
-    }
-  }
-
-  & .awesomplete input {
-    width: 100%;
-  }
 }
 
-.documents-upload .fieldset {
-  display: block;
+.overlay form,
+.overlay > div {
+  width: 100%;
+}
 
-  & input {
-    margin: 0 0 .5em;
-    width: 100%;
-  }
+.overlay strong {
+  display: inline-block;
+  margin: 6px 0 5px;
+}
 
-  & select {
-    margin-left: .5em;
-  }
+.overlay table {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.overlay dt {
+  display: inline-block;
+  float: left;
+  font-weight: normal;
+  line-height: 1.8em;
+  padding-right: 10px;
+  text-align: right;
+  width: auto;
+}
+
+.overlay dd {
+  line-height: 1.8em;
+}
+
+.overlay .fieldset label {
+  width: 150px;
+}
+
+.overlay .fieldset[type='submit'] {
+  margin: .5em .5em -.5em 0;
+}
+
+.documents-upload .fieldset input {
+  flex-grow: 1;
+  min-width: 60%;
+}
+
+.transaction-overlay form > .fieldset button {
+  margin-bottom: 0;
+  margin-top: .7em;
 }
 
 .notifications {
@@ -104,37 +94,22 @@
   right: 10px;
   top: calc(var(--header-height) + 10px);
   width: 400px;
-
-  & li {
-    background: var(--color-notification-info);
-    color: var(--color-notification);
-    display: block;
-    margin-bottom: .5em;
-    padding: 5px 10px;
-    width: 100%;
-  }
-
-  & .error {
-    background: var(--color-notification-error);
-  }
-
-  & .warning {
-    background: var(--color-notification-warning);
-  }
 }
 
-@media (max-width: 767px) {
-  .transaction-overlay {
-    overflow: scroll;
+.notifications li {
+  background-color: var(--color-notification-info);
+  color: var(--color-notification);
+  display: block;
+  margin-bottom: .5em;
+  padding: 5px 10px;
+  width: 100%;
+}
 
-    & .overlay {
-      left: 10px;
-      margin-bottom: 10px;
-      max-height: initial;
-      position: absolute;
-      right: 10px;
-      top: 10px;
-      width: calc(100vw - 20px);
-    }
-  }
+.notifications .error {
+  background-color: var(--color-notification-error);
+}
+
+.notifications .warning {
+  background-color: var(--color-notification-warning);
+  color: var(--color-text);
 }

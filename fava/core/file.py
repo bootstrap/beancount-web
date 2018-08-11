@@ -1,11 +1,15 @@
 """Reading/writing Beancount files."""
 
+import codecs
+from hashlib import sha256
 import os
+import re
 
-from beancount.core import data
+from beancount.core import data, flags
 from beancount.parser.printer import format_entry
 
 from fava.core.helpers import FavaAPIException, FavaModule
+from fava.core.misc import align
 
 
 class FileModule(FavaModule):
@@ -33,7 +37,7 @@ class FileModule(FavaModule):
             path: The path of the file.
 
         Returns:
-            A string with the file contents.
+            A string with the file contents and the `sha256sum` of the file.
 
         Raises:
             FavaAPIException: If the file at `path` is not one of the
@@ -43,29 +47,42 @@ class FileModule(FavaModule):
         if path not in self.list_sources():
             raise FavaAPIException('Trying to read a non-source file')
 
-        with open(path, encoding='utf8') as file:
-            source = file.read()
-        return source
+        with open(path, mode='rb') as file:
+            contents = file.read()
 
-    def set_source(self, path, source):
+        sha256sum = sha256(contents).hexdigest()
+        source = codecs.decode(contents)
+
+        return source, sha256sum
+
+    def set_source(self, path, source, sha256sum):
         """Write to source file.
 
         Args:
             path: The path of the file.
             source: A string with the file contents.
+            sha256sum: Hash of the file.
+
+        Returns:
+            The `sha256sum` of the updated file.
 
         Raises:
             FavaAPIException: If the file at `path` is not one of the
-                source files.
+                source files or if the file was changed externally.
 
         """
-        if path not in self.list_sources():
-            raise FavaAPIException('Trying to write a non-source file')
+        _, original_sha256sum = self.get_source(path)
+        if original_sha256sum != sha256sum:
+            raise FavaAPIException('The file changed externally.')
 
-        with open(path, 'w+', encoding='utf8') as file:
-            file.write(source)
+        contents = codecs.encode(source)
+        with open(path, 'w+b') as file:
+            file.write(contents)
+
         self.ledger.extensions.run_hook('after_write_source', path, source)
-        self.load_file()
+        self.ledger.load_file()
+
+        return sha256(contents).hexdigest()
 
     def insert_metadata(self, entry_hash, basekey, value):
         """Insert metadata into a file at lineno.
@@ -89,10 +106,40 @@ class FileModule(FavaModule):
         """
         self.ledger.changed()
         for entry in sorted(entries, key=incomplete_sortkey):
-            insert_entry(entry,
-                         self.list_sources(),
-                         self.ledger.fava_options['insert-entry'])
+            insert_entry(entry, self.list_sources(), self.ledger.fava_options)
             self.ledger.extensions.run_hook('after_insert_entry', entry)
+
+    def render_entries(self, entries):
+        """Return entries in Beancount format.
+
+        Only renders Balances and Transactions.
+
+        Args:
+            entries: A list of entries.
+
+        Yields:
+            The entries rendered in Beancount format.
+
+        """
+        excl_flags = [
+            flags.FLAG_PADDING,      # P
+            flags.FLAG_SUMMARIZE,    # S
+            flags.FLAG_TRANSFER,     # T
+            flags.FLAG_CONVERSIONS,  # C
+            flags.FLAG_UNREALIZED,   # U
+            flags.FLAG_RETURNS,      # R
+            flags.FLAG_MERGING,      # M
+        ]
+
+        for entry in entries:
+            if isinstance(entry, (data.Balance, data.Transaction)):
+                if isinstance(entry, data.Transaction) and \
+                   entry.flag in excl_flags:
+                    continue
+                try:
+                    yield get_entry_slice(entry)[0] + '\n'
+                except FileNotFoundError:
+                    yield _format_entry(entry, self.ledger.fava_options)
 
 
 def incomplete_sortkey(entry):
@@ -136,23 +183,99 @@ def insert_metadata_in_file(filename, lineno, key, value):
         file.write(contents)
 
 
-def insert_entry(entry, filenames, insert_options):
+def find_entry_lines(lines, lineno):
+    """Lines of entry starting at lineno."""
+    entry_lines = [lines[lineno]]
+    while True:
+        lineno += 1
+        try:
+            line = lines[lineno]
+        except IndexError:
+            break
+        if not line.strip() or re.match('[0-9a-z]', line[0]):
+            break
+        entry_lines.append(line)
+    return entry_lines
+
+
+def get_entry_slice(entry):
+    """Get slice of the source file for an entry.
+
+    Args:
+        entry: An entry.
+
+    Returns:
+        A string containing the lines of the entry and the `sha256sum` of
+        these lines.
+
+    Raises:
+        FavaAPIException: If the file at `path` is not one of the
+            source files.
+
+    """
+    with open(entry.meta['filename'], mode='r') as file:
+        lines = file.readlines()
+
+    entry_lines = find_entry_lines(lines, entry.meta['lineno'] - 1)
+    entry_source = ''.join(entry_lines).rstrip('\n')
+    sha256sum = sha256(codecs.encode(entry_source)).hexdigest()
+
+    return entry_source, sha256sum
+
+
+def save_entry_slice(entry, source_slice, sha256sum):
+    """Save slice of the source file for an entry.
+
+    Args:
+        entry: An entry.
+        source_slice: The lines that the entry should be replaced with.
+        sha256sum: The sha256sum of the current lines of the entry.
+
+    Returns:
+        The `sha256sum` of the new lines of the entry.
+
+    Raises:
+        FavaAPIException: If the file at `path` is not one of the
+            source files.
+
+    """
+
+    with open(entry.meta['filename'], 'r') as file:
+        lines = file.readlines()
+
+    first_entry_line = entry.meta['lineno'] - 1
+    entry_lines = find_entry_lines(lines, first_entry_line)
+    entry_source = ''.join(entry_lines).rstrip('\n')
+    original_sha256sum = sha256(codecs.encode(entry_source)).hexdigest()
+    if original_sha256sum != sha256sum:
+        raise FavaAPIException('The file changed externally.')
+
+    lines = (lines[:first_entry_line]
+             + [source_slice + '\n']
+             + lines[first_entry_line + len(entry_lines):])
+    with open(entry.meta['filename'], "w") as file:
+        file.writelines(lines)
+
+    return sha256(codecs.encode(source_slice)).hexdigest()
+
+
+def insert_entry(entry, filenames, fava_options):
     """Insert an entry.
 
     Args:
         entry: An entry.
         filenames: List of filenames.
-        insert_options: List of InsertOption. Note that the line numbers of the
-            options might be updated.
-
+        fava_options: The ledgers fava_options. Note that the line numbers of
+            the insert options might be updated.
     """
+    insert_options = fava_options.get('insert-entry', [])
     if isinstance(entry, data.Transaction):
         accounts = reversed([p.account for p in entry.postings])
     else:
         accounts = [entry.account]
     filename, lineno = find_insert_position(accounts, entry.date,
                                             insert_options, filenames)
-    content = _format_entry(entry) + '\n'
+    content = _format_entry(entry, fava_options) + '\n'
 
     with open(filename, "r") as file:
         contents = file.readlines()
@@ -163,14 +286,15 @@ def insert_entry(entry, filenames, insert_options):
         file.writelines(contents)
 
     for index, option in enumerate(insert_options):
+        added_lines = content.count('\n') + 1
         if option.filename == filename and option.lineno > lineno:
             insert_options[index] = option._replace(
-                lineno=lineno + content.count('\n') + 1)
+                lineno=lineno + added_lines)
 
 
-def _format_entry(entry):
+def _format_entry(entry, fava_options):
     """Wrapper that strips unnecessary whitespace from format_entry."""
-    string = format_entry(entry)
+    string = align(format_entry(entry), fava_options)
     return '\n'.join((line.rstrip() for line in string.split('\n')))
 
 

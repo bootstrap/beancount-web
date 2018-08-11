@@ -2,12 +2,14 @@
 
 from collections import namedtuple
 import datetime
+import io
 import re
 
 from beancount.core.data import Custom, Event
-from beancount.utils.misc_utils import filter_type
+from beancount.core import amount
 
 from fava.core.helpers import FavaModule
+from fava.core.fava_options import DEFAULTS
 
 FavaError = namedtuple('FavaError', 'source message entry')
 
@@ -15,19 +17,17 @@ FavaError = namedtuple('FavaError', 'source message entry')
 class FavaMisc(FavaModule):
     """Provides access to some miscellaneous reports."""
 
-    # pylint: disable=too-few-public-methods
-
     def __init__(self, ledger):
         super().__init__(ledger)
         self.sidebar_links = None
         self.upcoming_events = None
 
     def load_file(self):
-        custom_entries = list(filter_type(self.ledger.all_entries, Custom))
-        self.sidebar_links = _sidebar_links(custom_entries)
+        custom_entries = self.ledger.all_entries_by_type[Custom]
+        self.sidebar_links = sidebar_links(custom_entries)
 
-        self.upcoming_events = _upcoming_events(
-            self.ledger.all_entries,
+        self.upcoming_events = upcoming_events(
+            self.ledger.all_entries_by_type[Event],
             self.ledger.fava_options['upcoming-events'])
 
         if not self.ledger.options['operating_currency']:
@@ -36,7 +36,7 @@ class FavaMisc(FavaModule):
                           'Please add one to your beancount file.', None))
 
 
-def _sidebar_links(custom_entries):
+def sidebar_links(custom_entries):
     """Parse custom entries for links.
 
     They have the following format:
@@ -50,11 +50,11 @@ def _sidebar_links(custom_entries):
             for entry in sidebar_link_entries]
 
 
-def _upcoming_events(entries, max_delta):
+def upcoming_events(events, max_delta):
     """Parse entries for upcoming events.
 
     Args:
-        entries: A list of entries.
+        events: A list of events.
         max_delta: Number of days that should be considered.
 
     Returns:
@@ -62,30 +62,33 @@ def _upcoming_events(entries, max_delta):
         away.
     """
     today = datetime.date.today()
-    upcoming_events = []
+    upcoming = []
 
-    for event in filter_type(entries, Event):
+    for event in events:
         delta = event.date - today
         if delta.days >= 0 and delta.days < max_delta:
-            upcoming_events.append(event)
+            upcoming.append(event)
 
-    return upcoming_events
+    return upcoming
 
 
-def extract_tags_links(string):
-    """Extract tags and links from a (narration) string.
+def align(string, fava_options):
+    """Align currencies in one column."""
 
-    Args:
-        string: A string, possibly containing tags (`#tag`) and links
-        (`^link`).
+    column = fava_options.get('currency-column', DEFAULTS['currency-column'])
 
-    Returns:
-        A triple (new_string, tags, links) where `new_string` is `string`
-        stripped of tags and links.
-    """
+    output = io.StringIO()
+    for line in string.splitlines():
+        match = re.match(
+            r'([^";]*?)\s+([-+]?\s*[\d,]+(?:\.\d*)?)\s+({}\b.*)'.format(
+                amount.CURRENCY_RE), line)
+        if match:
+            prefix, number, rest = match.groups()
+            num_of_spaces = column - len(prefix) - len(number) - 4
+            spaces = ' ' * num_of_spaces
+            output.write(prefix + spaces + '  ' + number + ' ' + rest)
+        else:
+            output.write(line)
+        output.write('\n')
 
-    tags = re.findall(r'(?:^|\s)#(\w+)', string)
-    links = re.findall(r'(?:^|\s)\^(\w+)', string)
-    new_string = re.sub(r'(?:^|\s)[#^](\w+)', '', string).strip()
-
-    return new_string, frozenset(tags), frozenset(links)
+    return output.getvalue()

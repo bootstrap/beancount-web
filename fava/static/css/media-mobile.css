@@ -23,20 +23,20 @@
   }
 
   aside {
-    margin-left: -var(--aside-width);
+    margin-left: calc(-1 * var(--aside-width));
     top: 0;
+  }
 
-    &.active {
-      margin-left: 0;
+  aside.active {
+    margin-left: 0;
+  }
 
-      & .add-transaction-button {
-        left: var(--aside-width);
-      }
-    }
+  aside.active .add-transaction-button {
+    left: var(--aside-width);
   }
 
   .aside-button,
-  .add-transaction-button {
+  .navigation .add-transaction-button {
     border-color: var(--color-sidebar-border);
     border-style: solid;
     border-width: 0 1px 1px 0;
@@ -44,6 +44,7 @@
     left: 0;
     padding: 6px 4px;
     position: fixed;
+    text-align: center;
     width: 42px;
   }
 
@@ -51,15 +52,15 @@
     display: block;
     margin-left: 0;
     top: 0;
-
-    &.active {
-      background-color: var(--color-sidebar-background);
-      box-shadow: none;
-      left: var(--aside-width);
-    }
   }
 
-  .add-transaction-button {
+  .aside-button.active {
+    background-color: var(--color-sidebar-background);
+    box-shadow: none;
+    left: var(--aside-width);
+  }
+
+  .navigation .add-transaction-button {
     color: var(--color-mobile-button-text);
     font-size: 30px;
     top: 42px;

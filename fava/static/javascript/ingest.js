@@ -1,30 +1,30 @@
-import { $, $$, handleJSON } from './helpers';
-import { entryFormToJSON } from './entry-forms';
+import { $, $$ } from './helpers';
+import EntryForm from './entry-forms';
 import e from './events';
 
-function submitIngestForm() {
+e.on('button-click-extract-submit', () => {
   const form = $('.ingest-extract');
-  const jsonData = { entries: [] };
+  const forms = $$('.ingest-row.import .entry-form', form).map(el => new EntryForm(el));
+  EntryForm.submit(forms);
+});
 
-  $$('.ingest-row.import .entry-form', form).forEach((entryForm) => {
-    jsonData.entries.push(entryFormToJSON(entryForm));
+e.on('button-click-extract-toggle-ignore', (button) => {
+  const toImport = button.classList.contains('inactive');
+  const value = toImport ? 'import' : 'ignore';
+  $$(`.ingest-row.${toImport ? 'ignore' : 'import'} input[value=${value}]`).forEach((input) => {
+    input.click();
   });
+  button.classList.toggle('inactive');
+});
 
-  $.fetch(form.getAttribute('action'), {
-    method: 'PUT',
-    body: JSON.stringify(jsonData),
-    headers: { 'Content-Type': 'application/json' },
-  })
-    .then(handleJSON)
-    .then((data) => {
-      e.trigger('reload');
-      e.trigger('info', data.message);
-    }, (error) => {
-      e.trigger('error', `Importing failed: ${error}`);
-    });
-}
+e.on('button-click-extract-toggle-source', (button) => {
+  $$('.ingest-row .source').forEach((element) => {
+    element.classList.toggle('hidden');
+  });
+  button.classList.toggle('inactive');
+});
 
-export default function initExtract() {
+e.on('page-loaded', () => {
   const ingest = $('.ingest-extract');
   if (!ingest) return;
 
@@ -32,24 +32,4 @@ export default function initExtract() {
     const input = event.target;
     input.closest('.ingest-row').className = `ingest-row ${input.value}`;
   });
-
-  ingest.querySelector('.ingest-form-submit').addEventListener('click', (event) => {
-    event.preventDefault();
-    submitIngestForm();
-  });
-
-  $('#toggle-ignore').addEventListener('click', (event) => {
-    const value = event.target.classList.contains('inactive') ? 'import' : 'ignore';
-    $$(`.ingest-row input[value=${value}]`).forEach((input) => {
-      input.click();
-    });
-    event.target.classList.toggle('inactive');
-  });
-
-  $('#toggle-source').addEventListener('click', () => {
-    $$('.ingest-row .source').forEach((element) => {
-      element.classList.toggle('hidden');
-    });
-    event.target.classList.toggle('inactive');
-  });
-}
+});

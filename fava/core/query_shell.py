@@ -9,7 +9,6 @@ from beancount.core.data import Query
 from beancount.query import query_compile, query_execute, query_parser, shell
 from beancount.query.query import run_query
 from beancount.utils import pager
-from beancount.utils.misc_utils import filter_type
 
 from fava.core.helpers import FavaAPIException, FavaModule
 from fava.util.excel import to_csv, to_excel, HAVE_EXCEL
@@ -34,7 +33,7 @@ class QueryShell(shell.BQLShell, FavaModule):
         self.queries = []
 
     def load_file(self):
-        self.queries = list(filter_type(self.ledger.all_entries, Query))
+        self.queries = self.ledger.all_entries_by_type[Query]
 
     def add_help(self):
         "Attach help functions for each of the parsed token handlers."
@@ -49,12 +48,16 @@ class QueryShell(shell.BQLShell, FavaModule):
 
     @staticmethod
     def get_history(max_entries):
-        """Get the most recently used shell commands."""
+        """Get the most recently used shell commands (removing duplicates)."""
         num_entries = readline.get_current_history_length()
-        return [
-            readline.get_history_item(index + 1)
-            for index in range(max(num_entries - max_entries, 0), num_entries)
-        ]
+        history = []
+        for index in range(num_entries, 0, -1):
+            if len(history) >= max_entries:
+                return history
+            item = readline.get_history_item(index)
+            if item not in history:
+                history.insert(0, item)
+        return history
 
     def _loadfun(self):
         self.entries = self.ledger.entries

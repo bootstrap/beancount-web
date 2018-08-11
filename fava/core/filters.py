@@ -2,17 +2,271 @@
 
 import re
 
+import ply.yacc
 from beancount.core import account
-from beancount.core.data import Transaction
+from beancount.core.data import Custom, Transaction
 from beancount.ops import summarize
-from beancount.query import (
-    query_compile, query_env, query_execute, query_parser)
 
 from fava.util.date import parse_date
 from fava.core.helpers import FilterException
 
 
-class EntryFilter(object):
+class Token():
+    """A token having a certain type and value.
+
+    The lexer attribute only exists since PLY writes to it in case of a parser
+    error.
+    """
+    __slots__ = ['type', 'value', 'lexer']
+
+    def __init__(self, type_, value):
+        self.type = type_
+        self.value = value
+
+    def __repr__(self):
+        return 'Token({}, {})'.format(self.type, self.value)
+
+
+class FilterSyntaxLexer():
+    """Lexer for Fava's filter syntax."""
+    # pylint: disable=missing-docstring,invalid-name,no-self-use
+
+    tokens = (
+        'ANY',
+        'ALL',
+        'KEY',
+        'LINK',
+        'STRING',
+        'TAG',
+    )
+
+    RULES = (
+        ('LINK', r'\^[A-Za-z0-9\-_/.]+'),
+        ('TAG', r'\#[A-Za-z0-9\-_/.]+'),
+        ('KEY', r'[a-z][a-zA-Z0-9\-_]+:'),
+        ('ALL', r'all\('),
+        ('ANY', r'any\('),
+        ('STRING', r'\w+|"[^"]*"|\'[^\']*\''),
+    )
+
+    regex = re.compile('|'.join(
+        ('(?P<{}>{})'.format(name, rule) for name, rule in RULES)))
+
+    def LINK(self, token, value):
+        return token, value[1:]
+
+    def TAG(self, token, value):
+        return token, value[1:]
+
+    def KEY(self, token, value):
+        return token, value[:-1]
+
+    def ALL(self, token, _):
+        return token, token
+
+    def ANY(self, token, _):
+        return token, token
+
+    def STRING(self, token, value):
+        if value[0] in ['"', "'"]:
+            return token, value[1:-1]
+        return token, value
+
+    def lex(self, data):
+        """A generator yielding all tokens in a given line.
+
+        Arguments:
+            data: A string, the line to lex.
+
+        Yields:
+            All Tokens in the line.
+        """
+        ignore = ' \t'
+        literals = '-,()'
+        regex = self.regex.match
+
+        pos = 0
+        length = len(data)
+        while pos < length:
+            char = data[pos]
+            if char in ignore:
+                pos += 1
+                continue
+            match = regex(data, pos)
+            if match:
+                value = match.group()
+                pos += len(value)
+                token = match.lastgroup
+                func = getattr(self, token)
+                ret = func(token, value)
+                if ret:
+                    yield Token(*ret)
+            elif char in literals:
+                yield Token(char, char)
+                pos += 1
+            else:
+                raise FilterException(
+                    'filter',
+                    'Illegal character "{}" in filter: '.format(char))
+
+
+class Match():
+    """Match a string."""
+    __slots__ = ['match']
+
+    def __init__(self, search):
+        try:
+            self.match = re.compile(search, re.IGNORECASE).match
+        except re.error:
+            self.match = lambda string: string == search
+
+    def __call__(self, string):
+        return self.match(string)
+
+
+class FilterSyntaxParser():
+    # pylint: disable=missing-docstring,invalid-name,no-self-use
+
+    precedence = (
+        ('left', 'AND'),
+        ('right', 'UMINUS'),
+    )
+    tokens = FilterSyntaxLexer.tokens
+
+    def p_error(self, _):
+        raise FilterException('filter', 'Failed to parse filter: ')
+
+    def p_filter(self, p):
+        """
+        filter : expr
+        """
+        p[0] = p[1]
+
+    def p_expr(self, p):
+        """
+        expr : simple_expr
+        """
+        p[0] = p[1]
+
+    def p_expr_all(self, p):
+        """
+        expr : ALL expr ')'
+        """
+        expr = p[2]
+
+        def _match_postings(entry):
+            return all(
+                expr(posting) for posting in getattr(entry, 'postings', []))
+
+        p[0] = _match_postings
+
+    def p_expr_any(self, p):
+        """
+        expr : ANY expr ')'
+        """
+        expr = p[2]
+
+        def _match_postings(entry):
+            return any(
+                expr(posting) for posting in getattr(entry, 'postings', []))
+
+        p[0] = _match_postings
+
+    def p_expr_parentheses(self, p):
+        """
+        expr : '(' expr ')'
+        """
+        p[0] = p[2]
+
+    def p_expr_and(self, p):
+        """
+        expr : expr expr %prec AND
+        """
+        left, right = p[1], p[2]
+
+        def _and(entry):
+            return left(entry) and right(entry)
+
+        p[0] = _and
+
+    def p_expr_or(self, p):
+        """
+        expr : expr ',' expr
+        """
+        left, right = p[1], p[3]
+
+        def _or(entry):
+            return left(entry) or right(entry)
+
+        p[0] = _or
+
+    def p_expr_negated(self, p):
+        """
+        expr : '-' expr %prec UMINUS
+        """
+        func = p[2]
+
+        def _neg(entry):
+            return not func(entry)
+
+        p[0] = _neg
+
+    def p_simple_expr_TAG(self, p):
+        """
+        simple_expr : TAG
+        """
+        tag = p[1]
+
+        def _tag(entry):
+            return hasattr(entry, 'tags') and (tag in entry.tags)
+
+        p[0] = _tag
+
+    def p_simple_expr_LINK(self, p):
+        """
+        simple_expr : LINK
+        """
+        link = p[1]
+
+        def _link(entry):
+            return hasattr(entry, 'links') and (link in entry.links)
+
+        p[0] = _link
+
+    def p_simple_expr_STRING(self, p):
+        """
+        simple_expr : STRING
+        """
+        string = p[1]
+        match = Match(string)
+
+        def _string(entry):
+            for name in ('narration', 'payee', 'comment'):
+                value = getattr(entry, name, '')
+                if value and match(value):
+                    return True
+            return False
+
+        p[0] = _string
+
+    def p_simple_expr_key(self, p):
+        """
+        simple_expr : KEY STRING
+        """
+        key, value = p[1], p[2]
+        match = Match(value)
+
+        def _key(entry):
+            if hasattr(entry, key):
+                return match(str(getattr(entry, key) or ''))
+            if key in entry.meta:
+                return match(str(entry.meta.get(key)))
+            return False
+
+        p[0] = _key
+
+
+class EntryFilter():
     """Filters a list of entries. """
 
     def __init__(self):
@@ -53,35 +307,6 @@ class EntryFilter(object):
         return bool(self.value)
 
 
-class FromFilter(EntryFilter):  # pylint: disable=abstract-method
-    """Filter by a FROM expression in the Beancount Query Language."""
-
-    def __init__(self):
-        super().__init__()
-        self.parser = query_parser.Parser()
-        self.env_entries = query_env.FilterEntriesEnvironment()
-        self.c_from = None
-
-    def set(self, value):
-        if value == self.value:
-            return False
-        self.value = value
-        if not self.value:
-            return True
-        try:
-            from_clause = self.parser.parse(
-                'select * from ' + value).from_clause
-            self.c_from = query_compile.compile_from(
-                from_clause, self.env_entries)
-        except (query_compile.CompilationError,
-                query_parser.ParseError) as exception:
-            raise FilterException('from', str(exception))
-        return True
-
-    def _filter(self, entries, options):
-        return query_execute.filter_entries(self.c_from, entries, options)
-
-
 class TimeFilter(EntryFilter):  # pylint: disable=abstract-method
     """Filter by dates."""
 
@@ -96,11 +321,12 @@ class TimeFilter(EntryFilter):  # pylint: disable=abstract-method
         self.value = value
         if not self.value:
             return True
-        try:
-            self.begin_date, self.end_date = parse_date(self.value)
-        except TypeError:
-            raise FilterException('time', 'Failed to parse date: {}'
-                                  .format(self.value))
+
+        self.begin_date, self.end_date = parse_date(self.value)
+        if not self.begin_date:
+            self.value = None
+            raise FilterException('time',
+                                  'Failed to parse date: {}'.format(value))
         return True
 
     def _filter(self, entries, options):
@@ -109,49 +335,63 @@ class TimeFilter(EntryFilter):  # pylint: disable=abstract-method
         return entries
 
 
-class TagFilter(EntryFilter):
-    """Filter by tags and links.
+LEXER = FilterSyntaxLexer()
+PARSE = ply.yacc.yacc(
+    errorlog=ply.yacc.NullLogger(),
+    write_tables=False,
+    debug=False,
+    module=FilterSyntaxParser()).parse
 
-    Only keeps entries that can have tags and links.
-    """
+
+class AdvancedFilter(EntryFilter):
+    """Filter by tags and links and keys."""
 
     def __init__(self):
         super().__init__()
-        self.tags = set()
-        self.links = set()
+        self._include = None
 
     def set(self, value):
         if value == self.value:
             return False
         self.value = value
-        if not self.value:
-            return True
-        self.tags = set()
-        self.links = set()
-        for tag_or_link in [t.strip() for t in value.split(',')]:
-            if tag_or_link.startswith('#'):
-                self.tags.add(tag_or_link[1:])
-            if tag_or_link.startswith('^'):
-                self.links.add(tag_or_link[1:])
+        if value and value.strip():
+            try:
+                tokens = LEXER.lex(value.strip())
+                self._include = PARSE(
+                    lexer='NONE',
+                    tokenfunc=lambda toks=tokens: next(toks, None))
+            except FilterException as exception:
+                exception.message = exception.message + value
+                self.value = None
+                raise exception
+        else:
+            self._include = None
         return True
 
     def _include_entry(self, entry):
-        return hasattr(entry, 'tags') and (
-            (entry.tags & self.tags) or
-            (entry.links & self.links)
-        )
+        if self._include:
+            return self._include(entry)
+        return True
 
 
-def _match(search, string):
-    try:
-        return re.match(search, string) or search == string
-    except re.error:
-        return search == string
+def entry_account_predicate(entry, predicate):
+    """Predicate for filtering by account.
 
+    Args:
+        entry: An entry.
+        predicate: A predicate for account names.
 
-def _match_account(name, search):
-    return (account.has_component(name, search) or
-            _match(search, name))
+    Returns:
+        True if predicate is True for any account of the entry.
+    """
+
+    if isinstance(entry, Transaction):
+        return any(predicate(posting.account) for posting in entry.postings)
+    if isinstance(entry, Custom):
+        return any(
+            predicate(val.value) for val in entry.values
+            if val.dtype == account.TYPE)
+    return hasattr(entry, 'account') and predicate(entry.account)
 
 
 class AccountFilter(EntryFilter):
@@ -160,20 +400,19 @@ class AccountFilter(EntryFilter):
     The filter string can either a regular expression or a parent account.
     """
 
+    def __init__(self):
+        super().__init__()
+        self.match = None
+
+    def set(self, value):
+        if value == self.value:
+            return False
+        self.value = value
+        self.match = Match(value or '')
+        return True
+
+    def _account_predicate(self, name):
+        return account.has_component(name, self.value) or self.match(name)
+
     def _include_entry(self, entry):
-        if isinstance(entry, Transaction):
-            return any(_match_account(posting.account, self.value)
-                       for posting in entry.postings)
-        return (hasattr(entry, 'account') and
-                _match_account(entry.account, self.value))
-
-
-class PayeeFilter(EntryFilter):
-    """Filter by payee.
-
-    The filter string can either a regular expression or a full payee name.
-    """
-
-    def _include_entry(self, entry):
-        return isinstance(entry, Transaction) and \
-            _match(self.value, entry.payee or '')
+        return entry_account_predicate(entry, self._account_predicate)

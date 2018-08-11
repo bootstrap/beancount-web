@@ -3,18 +3,18 @@ import datetime
 
 from beancount.core import flags, convert, realization
 from beancount.core.amount import Amount
-from beancount.core.data import Transaction
-from beancount.core.display_context import DisplayContext
-from beancount.core.number import Decimal, MISSING
+from beancount.core.data import Transaction, Cost, iter_entry_dates
+from beancount.core.number import Decimal, ZERO
 from beancount.core.position import Position
-from beancount.core.inventory import Inventory
-from beancount.core.data import iter_entry_dates
 from beancount.utils.misc_utils import filter_type
+from flask import g
 from flask.json import JSONEncoder
 
 from fava.util import listify, pairwise
 from fava.template_filters import cost_or_value
 from fava.core.helpers import FavaModule
+from fava.core.inventory import CounterInventory
+from fava.core.tree import Tree
 
 
 class FavaJSONEncoder(JSONEncoder):
@@ -23,43 +23,26 @@ class FavaJSONEncoder(JSONEncoder):
     def default(self, o):  # pylint: disable=E0202
         if isinstance(o, Decimal):
             return float(o)
-        elif isinstance(o, (datetime.date, Amount, Position)):
+        if isinstance(o, (datetime.date, Amount, Position)):
             return str(o)
-        elif isinstance(o, (set, frozenset)):
+        if isinstance(o, (set, frozenset)):
             return list(o)
         try:
             return JSONEncoder.default(self, o)
         except TypeError:
-            # workaround for #472
-            if isinstance(o, DisplayContext):
-                o.ccontexts.pop(MISSING, None)
             return str(o)
 
 
-def _inventory_units(inventory):
-    """Renders an the units in an inventory to a currency -> amount dict."""
+def _serialize_account_node(node, date):
+    children = [
+        _serialize_account_node(account, date)
+        for account in node.children
+    ]
     return {
-        p.units.currency: p.units.number
-        for p in inventory.reduce(convert.get_units)
-    }
-
-
-def _inventory_cost_or_value(inventory, date):
-    """Renders an inventory at cost or value to a currency -> amount dict."""
-    inventory = cost_or_value(inventory, date)
-    return {p.units.currency: p.units.number for p in inventory}
-
-
-def _serialize_real_account(real_account, date):
-    return {
-        'account': real_account.account,
-        'balance_children': _inventory_cost_or_value(
-            realization.compute_balance(real_account), date),
-        'balance': _inventory_cost_or_value(real_account.balance, date),
-        'children': [
-            _serialize_real_account(account, date)
-            for _, account in sorted(real_account.items())
-        ],
+        'account': node.name,
+        'balance_children': cost_or_value(node.balance_children, date),
+        'balance': cost_or_value(node.balance, date),
+        'children': children,
     }
 
 
@@ -78,23 +61,21 @@ class ChartModule(FavaModule):
     def hierarchy(self, account_name, begin=None, end=None):
         """An account tree."""
         if begin:
-            entries = iter_entry_dates(self.ledger.entries, begin, end)
-            root_account = realization.realize(entries)
+            tree = Tree(iter_entry_dates(self.ledger.entries, begin, end))
         else:
-            root_account = self.ledger.root_account
-        return _serialize_real_account(
-            realization.get_or_create(root_account, account_name), end)
+            tree = self.ledger.root_tree
+        return _serialize_account_node(tree.get(account_name), end)
 
     @listify
     def interval_totals(self, interval, accounts):
         """Renders totals for account (or accounts) in the intervals.
 
         Args:
-            interval: A string for the interval.
+            interval: An interval.
             accounts: A single account (str) or a tuple of accounts.
         """
         for begin, end in pairwise(self.ledger.interval_ends(interval)):
-            inventory = Inventory()
+            inventory = CounterInventory()
             entries = iter_entry_dates(self.ledger.entries, begin, end)
             for entry in filter_type(entries, Transaction):
                 for posting in entry.postings:
@@ -102,12 +83,13 @@ class ChartModule(FavaModule):
                         inventory.add_position(posting)
 
             yield {
-                'begin_date': begin,
-                'totals': _inventory_cost_or_value(inventory, end),
+                'date': begin,
+                'balance': cost_or_value(inventory, end),
                 'budgets':
                 self.ledger.budgets.calculate_children(accounts, begin, end),
             }
 
+    @listify
     def linechart(self, account_name):
         """The balance of an account.
 
@@ -127,12 +109,26 @@ class ChartModule(FavaModule):
         # When the balance for a commodity just went to zero, it will be
         # missing from the 'balance' field but appear in the 'change' field.
         # Use 0 for those commodities.
-        return [{
-            'date': entry.date,
-            'balance': dict({curr: 0
-                             for curr in list(change.currencies())},
-                            **_inventory_units(balance)),
-        } for entry, _, change, balance in journal if len(change)]
+        for entry, _, change, balance in journal:
+            if change.is_empty():
+                continue
+
+            if g.conversion == 'units':
+                bal = {curr: 0 for curr in list(change.currencies())}
+                bal.update({
+                    p.units.currency: p.units.number
+                    for p in balance.reduce(convert.get_units)
+                })
+            else:
+                bal = {
+                    p.units.currency: p.units.number
+                    for p in cost_or_value(balance, entry.date)
+                }
+
+            yield {
+                'date': entry.date,
+                'balance': bal,
+            }
 
     @listify
     def net_worth(self, interval):
@@ -154,13 +150,19 @@ class ChartModule(FavaModule):
                  self.ledger.options['name_liabilities'])
 
         txn = next(transactions, None)
-        inventory = Inventory()
+        inventory = CounterInventory()
 
         for date in self.ledger.interval_ends(interval):
             while txn and txn.date < date:
                 for posting in filter(lambda p: p.account.startswith(types),
                                       txn.postings):
-                    inventory.add_position(posting)
+                    # Since we will be reducing the inventory to the operating
+                    # currencies, pre-aggregate the positions to reduce the
+                    # number of elements in the inventory.
+                    inventory.add_amount(
+                        posting.units,
+                        Cost(ZERO, posting.cost.currency, None, None)
+                        if posting.cost else None)
                 txn = next(transactions, None)
             yield {
                 'date': date,
@@ -168,7 +170,7 @@ class ChartModule(FavaModule):
                     currency:
                     inventory.reduce(convert.convert_position, currency,
                                      self.ledger.price_map,
-                                     date).get_currency_units(currency).number
+                                     date).get(currency)
                     for currency in self.ledger.options['operating_currency']
                 }
             }

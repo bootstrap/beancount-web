@@ -1,21 +1,15 @@
 import datetime
-import os
-import pytest
 
 from fava.core import FavaLedger
 
+from .conftest import data_file
 
-FILE_PATH = os.path.join(os.path.dirname(__file__), 'data/import.beancount')
-EXAMPLE = os.path.join(os.path.dirname(__file__), 'data/import.csv')
-
-
-@pytest.fixture
-def ingest_ledger():
-    ledger = FavaLedger(FILE_PATH)
-    return ledger
+FILE_PATH = data_file('import.beancount')
+EXAMPLE = data_file('import.csv')
 
 
-def test_ingest_examplefile(ingest_ledger):
+def test_ingest_examplefile():
+    ingest_ledger = FavaLedger(FILE_PATH)
     identify_dir = list(ingest_ledger.ingest.identify_directory('.'))
     assert len(identify_dir) == 1
 

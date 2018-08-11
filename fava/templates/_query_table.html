@@ -1,5 +1,3 @@
-{% import 'macros/_account_macros.html' as account_macros with context %}
-
 {% set sort_type = {
     "<class 'decimal.Decimal'>": 'num',
     "<class 'cdecimal.Decimal'>": 'num',
@@ -9,57 +7,70 @@
 {% macro querycell(name, value, type_) %}
 {% set type = type_|string %}
 {% if type == "<class 'beancount.core.inventory.Inventory'>" %}
-    <td class="num">
-    {% for position in value.cost() %}
-        {% if position.units.number != 0 %}
-            {{ position.units|format_amount }}<br>
-        {% endif %}
-    {% endfor %}
-    </td>
+<td class="num">
+  {% for position in value|sort(attribute='units.currency') %}
+  {{ position.units|format_amount }}<br>
+  {% endfor %}
+</td>
 {% elif type == "<class 'str'>" %}
-    <td>
-        {% if name == "account" %}
-            {{ account_macros.account_name(value) }}
-        {% else %}
-            {{ value }}
-        {% endif %}
-    </td>
+<td>
+  {% if name == "account" %}
+  <a href="{{ url_for('account', name=value) }}">{{ value }}</a>
+  {% else %}
+  {{ value }}
+  {% endif %}
+</td>
 {% elif type == "<class 'decimal.Decimal'>" or type == "<class 'cdecimal.Decimal'>" %}
-    <td class="num" data-sort-value="{{ value }}">{{ value|format_currency }}</td>
+<td class="num" data-sort-value="{{ value or 0 }}">{{ value|format_currency }}</td>
 {% elif type == "<class 'beancount.core.amount.Amount'>" %}
-    <td class="num">{{ value|format_amount }}</td>
+<td class="num" data-sort-value="{{ value.number or 0 }}">{{ value|format_amount }}</td>
 {% elif type == "<class 'bool'>" %}
-    <td>{{ value|upper }}</td>
+<td>{{ value|upper }}</td>
 {% elif type == "<class 'int'>" %}
-    <td class="num">{{ value }}</td>
+<td class="num">{{ value }}</td>
 {% elif type == "<class 'set'>" %}
-    <td>{{ value|join(',') }}</td>
+<td>{{ value|join(',') }}</td>
 {% elif type == "<class 'datetime.date'>" %}
-    <td>{{ value or '' }}</td>
+<td>{{ value or '' }}</td>
 {% elif type == "<class 'beancount.core.position.Position'>" %}
-    <td class="num">{{ value.units|format_amount }}</td>
+<td class="num">{{ value.units|format_amount }}</td>
 {% else %}
-    <td class="query-error" title="Type {{ type|string }} not recognized">{{ value }}</td>
+<td class="query-error" title="Type {{ type|string }} not recognized">{{ value }}</td>
 {% endif %}
 {% endmacro %}
 
-{% macro querytable(types, rows, filter_empty=None) %}
-  <table class="queryresults sortable">
-    <thead>
-      <tr>
-        {% for name, type in types %}
-          <th data-sort="{{ sort_type[type|string] or "string" }}">{{ name }}</th>
-        {% endfor %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for row in rows if filter_empty == None or not row[filter_empty].is_empty() %}
-        <tr>
-          {% for name, type in types %}
-            {{ querycell(name, row[name], type)  }}
-          {% endfor %}
-        </tr>
+{% macro querytable(contents, types, rows, filter_empty=None) %}
+{% if contents %}
+<pre><code>{{ contents }}</code></pre>
+{% elif types %}
+<table class="queryresults sortable">
+  <thead>
+    <tr>
+      {% for name, type in types %}
+      <th data-sort="{{ sort_type[type|string] or "string" }}">{{ name }}</th>
       {% endfor %}
-    </tbody>
-  </table>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows if filter_empty == None or not row[filter_empty].is_empty() %}
+    <tr>
+      {% for name, type in types %}
+      {{ querycell(name, row[name], type)  }}
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
 {% endmacro %}
+
+{% macro download_links(query) -%}
+  <span class="download">
+    ({{ _('Download as') }}
+    <a href="{{ url_for('download_query', query_string=query, result_format='csv') }}" data-remote>CSV</a>{% if config['HAVE_EXCEL'] %},
+      <a href="{{ url_for('download_query', query_string=query, result_format='xls') }}" data-remote>XLS</a>,
+      <a href="{{ url_for('download_query', query_string=query, result_format='xlsx') }}" data-remote>XLSX</a>, or
+      <a href="{{ url_for('download_query', query_string=query, result_format='ods') }}" data-remote>ODS</a>
+    {% endif %})
+  </span>
+{%- endmacro %}

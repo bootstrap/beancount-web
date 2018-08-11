@@ -1,8 +1,16 @@
-import { $, $$ } from './helpers';
+// Account trees.
+//
+// This handles the toggling of accounts in the accounts trees.
 
-export default function initTreeTable() {
+import { $, $$ } from './helpers';
+import e from './events';
+
+e.on('page-loaded', () => {
   $$('.tree-table').forEach((table) => {
     $.delegate(table, 'click', 'span.has-children', (event) => {
+      if (event.target.tagName === 'A') {
+        return;
+      }
       const row = event.target.closest('li');
       const willShow = row.classList.contains('toggled');
       if (event.shiftKey) {
@@ -13,14 +21,13 @@ export default function initTreeTable() {
       }
       row.classList.toggle('toggled');
 
-      $('a.expand-all', table)
+      $('.expand-all', table)
         .classList.toggle('hidden', !$$('.toggled', table).length);
     });
 
-    $.delegate(table, 'click', 'a.expand-all', (event) => {
-      event.preventDefault();
+    $.delegate(table, 'click', '.expand-all', (event) => {
       event.target.classList.add('hidden');
       $$('.toggled', table).forEach((el) => { el.classList.remove('toggled'); });
     });
   });
-}
+});

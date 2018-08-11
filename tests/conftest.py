@@ -4,18 +4,20 @@ import pytest
 
 from beancount.loader import load_string
 from fava.core import FavaLedger
-from fava.application import load_file
 from fava.application import app as fava_app
+from fava.core.budgets import parse_budgets
 
 
-EXAMPLE_FILE = os.path.join(os.path.dirname(__file__), 'example.beancount')
+def data_file(filename):
+    return os.path.join(os.path.dirname(__file__), 'data', filename)
+
+
+EXAMPLE_FILE = data_file('long-example.beancount')
 API = FavaLedger(EXAMPLE_FILE)
-
 
 fava_app.testing = True
 TEST_CLIENT = fava_app.test_client()
 fava_app.config['BEANCOUNT_FILES'] = [EXAMPLE_FILE]
-load_file()
 
 
 @pytest.fixture
@@ -34,6 +36,18 @@ def load_doc(request):
 
 
 @pytest.fixture
+def small_example_ledger():
+    return FavaLedger(data_file('example.beancount'))
+
+
+@pytest.fixture
 def example_ledger():
     yield API
-    API.filter(**{name: None for name in API._filters.keys()})
+    API.filter(account=None, filter=None, time=None)
+
+
+@pytest.fixture
+def budgets_doc(request):
+    entries, _, _ = load_string(request.function.__doc__, dedent=True)
+    budgets, _ = parse_budgets(entries)
+    return budgets

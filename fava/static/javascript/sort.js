@@ -1,18 +1,18 @@
-import { $, $$ } from './helpers';
-
-// Enable sorting of tables and the journal.
+// Sorting of tables and the journal.
 //
 // Only clicking on headers that have a data-sort attribute will have an
 // effect. The currently supported values for `data-sort` are:
 //
 //  - 'string': Case-insensitive string comparison.
 //  - 'num': Clean and parse to float.
-//
+
+import { $, $$ } from './helpers';
+import e from './events';
 
 function parseNumber(num) {
   const cleaned = num.replace(/[^\-?0-9.]/g, '');
   const n = parseFloat(cleaned);
-  return isNaN(n) ? 0 : n;
+  return Number.isNaN(n) ? 0 : n;
 }
 
 const sorters = {
@@ -35,9 +35,8 @@ function getValue(el) {
 
 function sortElements(options) {
   function sortFunction(a, b) {
-    return (options.order === 'asc' ? 1 : -1) * sorters[options.type](
-        getValue(options.selector(a)),
-        getValue(options.selector(b)));
+    return (options.order === 'asc' ? 1 : -1)
+            * sorters[options.type](getValue(options.selector(a)), getValue(options.selector(b)));
   }
 
   const fragment = document.createDocumentFragment();
@@ -120,3 +119,7 @@ export default function initSort() {
     sortableJournal(el);
   });
 }
+
+e.on('page-loaded', () => {
+  initSort();
+});

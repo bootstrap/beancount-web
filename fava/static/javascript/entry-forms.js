@@ -1,125 +1,170 @@
-import Awesomplete from 'awesomplete';
-import fuzzy from 'fuzzyjs';
-
+import e from './events';
+import { formatCurrency } from './format';
 import { $, $$, handleJSON } from './helpers';
 
-// These will be updated once a payee is set.
-const accountCompleters = [];
+// Various helpers to deal with entry forms.
+export default class EntryForm {
+  constructor(form) {
+    this.form = form;
+    this.type = this.form.getAttribute('data-type');
+  }
 
-function updateAccountCompleters(payee) {
-  $.fetch(`${window.favaAPI.baseURL}api/payee-accounts/?payee=${payee}`)
-    .then(handleJSON)
-    .then((data) => {
-      accountCompleters.forEach((completer) => {
-        completer.list = data.payload; // eslint-disable-line no-param-reassign
-      });
+  // Append a posting row.
+  addPosting() {
+    const newPosting = $('#posting-template').children[0].cloneNode(true);
+    this.form.querySelector('.postings').appendChild(newPosting);
+    return newPosting;
+  }
+
+  // Append a metadata row.
+  addMetadata() {
+    const newMetadata = $('#metadata-template').children[0].cloneNode(true);
+    this.form.querySelector('.metadata').appendChild(newMetadata);
+    return newMetadata;
+  }
+
+  // Reset the entry form.
+  reset() {
+    $('[name=narration]', this.form).value = '';
+    $('[name=payee]', this.form).value = '';
+    $$('.metadata-row', this.form).forEach((el) => { el.remove(); });
+    $$('.posting', this.form).forEach((el) => { el.remove(); });
+    this.addPosting();
+    this.addPosting();
+    this.form.focus();
+  }
+
+  // Check validity of the form.
+  checkValidity() {
+    if ($$('input', this.form).some(input => !input.checkValidity())) return false;
+    if (this.type === 'Transaction' && $$('.posting', this.form).length === 0) return false;
+    return true;
+  }
+
+  // Convert the form data to JSON.
+  toJSON() {
+    if (!this.checkValidity()) throw new Error();
+
+    const entryData = {
+      type: this.type,
+      meta: {},
+    };
+
+    $$('[name]', this.form).forEach((input) => {
+      entryData[input.name] = input.value;
     });
-}
 
-export function initInput(input) {
-  const listAttribute = input.getAttribute('list');
-  if (!listAttribute) {
-    return;
-  }
-
-  const options = {
-    autoFirst: true,
-    minChars: 0,
-    maxItems: 30,
-    filter(suggestion, search) {
-      return fuzzy.test(search, suggestion.value);
-    },
-    sort: false,
-  };
-  const completer = new Awesomplete(input, options);
-
-  if (listAttribute === 'accounts') {
-    accountCompleters.push(completer);
-  }
-
-  if (listAttribute === 'payees') {
-    input.addEventListener('blur', () => {
-      updateAccountCompleters(input.value);
+    $$('.metadata-row', this.form).forEach((row) => {
+      const key = row.querySelector('.metadata-key').value;
+      entryData.meta[key] = row.querySelector('.metadata-value').value;
     });
-  }
 
-  input.addEventListener('focus', () => {
-    completer.evaluate();
-  });
-}
-
-export function addPostingRow(form) {
-  const newPosting = $('#posting-template').cloneNode(true);
-  $$('input', newPosting).forEach((input) => {
-    initInput(input);
-  });
-  form.querySelector('.postings').appendChild(newPosting);
-  newPosting.setAttribute('id', '');
-  return newPosting;
-}
-
-export function addMetadataRow(form) {
-  const newMetadata = $('#metadata-template').cloneNode(true);
-  $$('input', newMetadata).forEach((input) => {
-    initInput(input);
-  });
-  form.querySelector('.metadata').appendChild(newMetadata);
-  newMetadata.setAttribute('id', '');
-  return newMetadata;
-}
-
-export function entryFormToJSON(form) {
-  const entryData = {};
-  entryData.type = form.getAttribute('data-type');
-
-  $$('input', form.querySelector('.fieldset')).forEach((input) => {
-    entryData[input.name] = input.value;
-  });
-
-  entryData.metadata = {};
-  $$('.metadata-row', form).forEach((metadata) => {
-    const key = metadata.querySelector('input[name=metadata-key]').value;
-    if (key) {
-      entryData.metadata[key] = metadata.querySelector('input[name=metadata-value]').value;
-    }
-  });
-
-  if (entryData.type === 'transaction') {
-    entryData.postings = [];
-    $$('.posting', form).forEach((posting) => {
-      const account = posting.querySelector('input[name=account]').value;
-
-      if (account) {
+    if (this.type === 'Transaction') {
+      entryData.postings = [];
+      $$('.posting', this.form).forEach((posting) => {
         entryData.postings.push({
-          account,
-          number: posting.querySelector('input[name=number]').value,
-          currency: posting.querySelector('input[name=currency]').value,
+          account: posting.querySelector('.account').value,
+          number: posting.querySelector('.number').value,
+          currency: posting.querySelector('.currency').value,
         });
+      });
+    }
+
+    if (this.type === 'Balance') {
+      entryData.account = this.form.querySelector('.account').value;
+    }
+
+    return entryData;
+  }
+
+  // Check if the form is empty (but for date and payee).
+  isEmpty() {
+    let empty = true;
+    if ($('[name=narration]', this.form).value) empty = false;
+    $$('.posting', this.form).forEach((posting) => {
+      if (posting.querySelector('.account').value) empty = false;
+    });
+    return empty;
+  }
+
+  // Set all but date and payee like in the given transaction (if empty).
+  set(entry) {
+    if (!this.isEmpty()) return;
+    $('[name=narration]', this.form).value = entry.narration;
+    $$('.posting', this.form).forEach((el) => { el.remove(); });
+    entry.postings.forEach((posting) => {
+      const { account, units } = posting;
+      const row = this.addPosting();
+      $('.account', row).value = account;
+      if (units) {
+        $('.number', row).value = formatCurrency(units.number);
+        $('.currency', row).value = units.currency;
       }
     });
   }
 
-  return entryData;
-}
+  // Submit an Array of forms (do nothing if one of them is invalid).
+  static submit(forms, successCallback) {
+    const jsonData = { entries: [] };
+    let allValid = true;
 
-export default function initEntryForms() {
-  $$('.entry-form').forEach((form) => {
-    $$('input', form).forEach((input) => {
-      initInput(input);
+    forms.forEach((entryForm) => {
+      try {
+        jsonData.entries.push(entryForm.toJSON());
+      } catch (error) {
+        allValid = false;
+      }
     });
 
-    if (form.classList.contains('transaction')) {
-      $.delegate(form, 'click', '.add-posting', (event) => {
-        event.preventDefault();
-        const newPosting = addPostingRow(form);
-        newPosting.querySelector('.account').focus();
-      });
+    if (!allValid) return;
 
-      $.delegate(form, 'click', '.add-metadata', (event) => {
-        event.preventDefault();
-        const newMetadata = addMetadataRow(form);
-        newMetadata.querySelector('.metadata-key').focus();
+    $.fetch(`${window.favaAPI.baseURL}api/add-entries/`, {
+      method: 'PUT',
+      body: JSON.stringify(jsonData),
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(handleJSON)
+      .then((data) => {
+        e.trigger('reload');
+        e.trigger('info', data.message);
+        if (successCallback) {
+          successCallback();
+        }
+      }, (error) => {
+        e.trigger('error', `Saving failed: ${error}`);
       });
-    }
-  });
+  }
 }
+
+e.on('button-click-remove-fieldset', (button) => {
+  button.closest('.fieldset').remove();
+});
+
+e.on('button-click-add-metadata', (button) => {
+  new EntryForm(button.closest('.entry-form'))
+    .addMetadata()
+    .querySelector('input')
+    .focus();
+});
+
+e.on('button-click-add-posting', (button) => {
+  new EntryForm(button.closest('.entry-form'))
+    .addPosting()
+    .querySelector('input')
+    .focus();
+});
+
+// Autofill complete transactions.
+e.on('autocomplete-select-payees', (input) => {
+  const payee = input.value;
+  const params = new URLSearchParams();
+  params.set('payee', payee);
+  $.fetch(`${window.favaAPI.baseURL}api/payee-transaction/?${params.toString()}`)
+    .then(handleJSON)
+    .then(data => data.payload)
+    .then((entry) => {
+      const form = input.closest('.entry-form');
+      if (!form || !entry) return;
+      new EntryForm(form).set(entry);
+    });
+});

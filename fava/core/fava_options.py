@@ -14,36 +14,34 @@ OptionError = namedtuple('OptionError', 'source message entry')
 InsertEntryOption = namedtuple('InsertEntryOption', 'date re filename lineno')
 
 DEFAULTS = {
-    'default-file': None,
     'account-journal-include-children': True,
+    'currency-column': 61,
     'auto-reload': False,
-    'charts': True,
-    'use-external-editor': False,
-    'show-closed-accounts': False,
-    'show-accounts-with-zero-balance': True,
-    'show-accounts-with-zero-transactions': True,
-    'uptodate-indicator-grey-lookback-days': 60,
-    'upcoming-events': 7,
-    'sidebar-show-queries': 5,
-    'editor-print-margin-column': 60,
+    'default-file': None,
     'extensions': [],
-    'journal-show':
-    ['transaction', 'balance', 'note', 'document', 'custom', 'budget'],
-    'journal-show-transaction': ['cleared', 'pending'],
-    'journal-show-document': ['discovered', 'statement'],
-    'language': None,
-    'interval': 'month',
-    'incognito': False,
-    'insert-entry': [],
     'import-config': None,
     'import-dirs': [],
+    'insert-entry': [],
+    'interval': 'month',
+    'journal-show': ['transaction', 'balance', 'note', 'document', 'custom',
+                     'budget', 'query'],
+    'journal-show-document': ['discovered', 'statement'],
+    'journal-show-transaction': ['cleared', 'pending'],
+    'language': None,
+    'locale': None,
+    'show-accounts-with-zero-balance': True,
+    'show-accounts-with-zero-transactions': True,
+    'show-closed-accounts': False,
+    'sidebar-show-queries': 5,
+    'unrealized': 'Unrealized',
+    'upcoming-events': 7,
+    'uptodate-indicator-grey-lookback-days': 60,
+    'use-external-editor': False,
 }
 
 BOOL_OPTS = [
     'account-journal-include-children',
     'auto-reload',
-    'charts',
-    'incognito',
     'show-accounts-with-zero-balance',
     'show-accounts-with-zero-transactions',
     'show-closed-accounts',
@@ -51,24 +49,26 @@ BOOL_OPTS = [
 ]
 
 INT_OPTS = [
-    'editor-print-margin-column',
-    'sidebar-show-queries',
-    'uptodate-indicator-grey-lookback-days',
+    'currency-column',
     'upcoming-events',
+    'uptodate-indicator-grey-lookback-days',
+    'sidebar-show-queries',
 ]
 
 LIST_OPTS = [
     'extensions',
+    'import-dirs',
     'journal-show',
     'journal-show-document',
     'journal-show-transaction',
-    'import-dirs',
 ]
 
 STR_OPTS = [
-    'language',
-    'interval',
     'import-config',
+    'interval',
+    'language',
+    'locale',
+    'unrealized',
 ]
 
 
@@ -99,7 +99,7 @@ def parse_options(custom_entries):
 
                 if key == 'default-file':
                     options[key] = entry.meta['filename']
-                if key == 'insert-entry':
+                elif key == 'insert-entry':
                     opt = InsertEntryOption(
                         entry.date,
                         re.compile(entry.values[1].value),
