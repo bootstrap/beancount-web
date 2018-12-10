@@ -1,5 +1,4 @@
 import e from './events';
-import { formatCurrency } from './format';
 import { $, $$, handleJSON } from './helpers';
 
 // Various helpers to deal with entry forms.
@@ -27,8 +26,12 @@ export default class EntryForm {
   reset() {
     $('[name=narration]', this.form).value = '';
     $('[name=payee]', this.form).value = '';
-    $$('.metadata-row', this.form).forEach((el) => { el.remove(); });
-    $$('.posting', this.form).forEach((el) => { el.remove(); });
+    $$('.metadata-row', this.form).forEach(el => {
+      el.remove();
+    });
+    $$('.posting', this.form).forEach(el => {
+      el.remove();
+    });
     this.addPosting();
     this.addPosting();
     this.form.focus();
@@ -36,8 +39,10 @@ export default class EntryForm {
 
   // Check validity of the form.
   checkValidity() {
-    if ($$('input', this.form).some(input => !input.checkValidity())) return false;
-    if (this.type === 'Transaction' && $$('.posting', this.form).length === 0) return false;
+    if ($$('input', this.form).some(input => !input.checkValidity()))
+      return false;
+    if (this.type === 'Transaction' && $$('.posting', this.form).length === 0)
+      return false;
     return true;
   }
 
@@ -50,22 +55,21 @@ export default class EntryForm {
       meta: {},
     };
 
-    $$('[name]', this.form).forEach((input) => {
+    $$('[name]', this.form).forEach(input => {
       entryData[input.name] = input.value;
     });
 
-    $$('.metadata-row', this.form).forEach((row) => {
+    $$('.metadata-row', this.form).forEach(row => {
       const key = row.querySelector('.metadata-key').value;
       entryData.meta[key] = row.querySelector('.metadata-value').value;
     });
 
     if (this.type === 'Transaction') {
       entryData.postings = [];
-      $$('.posting', this.form).forEach((posting) => {
+      $$('.posting', this.form).forEach(posting => {
         entryData.postings.push({
           account: posting.querySelector('.account').value,
-          number: posting.querySelector('.number').value,
-          currency: posting.querySelector('.currency').value,
+          amount: posting.querySelector('.amount').value,
         });
       });
     }
@@ -81,7 +85,7 @@ export default class EntryForm {
   isEmpty() {
     let empty = true;
     if ($('[name=narration]', this.form).value) empty = false;
-    $$('.posting', this.form).forEach((posting) => {
+    $$('.posting', this.form).forEach(posting => {
       if (posting.querySelector('.account').value) empty = false;
     });
     return empty;
@@ -91,14 +95,15 @@ export default class EntryForm {
   set(entry) {
     if (!this.isEmpty()) return;
     $('[name=narration]', this.form).value = entry.narration;
-    $$('.posting', this.form).forEach((el) => { el.remove(); });
-    entry.postings.forEach((posting) => {
-      const { account, units } = posting;
+    $$('.posting', this.form).forEach(el => {
+      el.remove();
+    });
+    entry.postings.forEach(posting => {
+      const { account, amount } = posting;
       const row = this.addPosting();
       $('.account', row).value = account;
-      if (units) {
-        $('.number', row).value = formatCurrency(units.number);
-        $('.currency', row).value = units.currency;
+      if (amount) {
+        $('.amount', row).value = amount;
       }
     });
   }
@@ -108,7 +113,7 @@ export default class EntryForm {
     const jsonData = { entries: [] };
     let allValid = true;
 
-    forms.forEach((entryForm) => {
+    forms.forEach(entryForm => {
       try {
         jsonData.entries.push(entryForm.toJSON());
       } catch (error) {
@@ -124,30 +129,33 @@ export default class EntryForm {
       headers: { 'Content-Type': 'application/json' },
     })
       .then(handleJSON)
-      .then((data) => {
-        e.trigger('reload');
-        e.trigger('info', data.message);
-        if (successCallback) {
-          successCallback();
-        }
-      }, (error) => {
-        e.trigger('error', `Saving failed: ${error}`);
-      });
+      .then(
+        data => {
+          e.trigger('reload');
+          e.trigger('info', data.message);
+          if (successCallback) {
+            successCallback();
+          }
+        },
+        error => {
+          e.trigger('error', `Saving failed: ${error}`);
+        },
+      );
   }
 }
 
-e.on('button-click-remove-fieldset', (button) => {
+e.on('button-click-remove-fieldset', button => {
   button.closest('.fieldset').remove();
 });
 
-e.on('button-click-add-metadata', (button) => {
+e.on('button-click-add-metadata', button => {
   new EntryForm(button.closest('.entry-form'))
     .addMetadata()
     .querySelector('input')
     .focus();
 });
 
-e.on('button-click-add-posting', (button) => {
+e.on('button-click-add-posting', button => {
   new EntryForm(button.closest('.entry-form'))
     .addPosting()
     .querySelector('input')
@@ -155,14 +163,16 @@ e.on('button-click-add-posting', (button) => {
 });
 
 // Autofill complete transactions.
-e.on('autocomplete-select-payees', (input) => {
+e.on('autocomplete-select-payees', input => {
   const payee = input.value;
   const params = new URLSearchParams();
   params.set('payee', payee);
-  $.fetch(`${window.favaAPI.baseURL}api/payee-transaction/?${params.toString()}`)
+  $.fetch(
+    `${window.favaAPI.baseURL}api/payee-transaction/?${params.toString()}`,
+  )
     .then(handleJSON)
     .then(data => data.payload)
-    .then((entry) => {
+    .then(entry => {
       const form = input.closest('.entry-form');
       if (!form || !entry) return;
       new EntryForm(form).set(entry);

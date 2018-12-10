@@ -37,6 +37,27 @@ import { $, handleJSON } from './helpers';
 import e from './events';
 import router from './router';
 
+import '../css/style.css';
+import '../css/base.css';
+import '../css/charts.css';
+import '../css/components.css';
+import '../css/editor.css';
+import '../css/entry-forms.css';
+import '../css/fonts.css';
+import '../css/header.css';
+import '../css/help.css';
+import '../css/ingest.css';
+import '../css/journal-table.css';
+import '../css/media-mobile.css';
+import '../css/media-print.css';
+import '../css/overlay.css';
+import '../css/query.css';
+import '../css/tree-table.css';
+import 'codemirror/lib/codemirror.css';
+import 'codemirror/addon/dialog/dialog.css';
+import 'codemirror/addon/fold/foldgutter.css';
+import 'codemirror/addon/hint/show-hint.css';
+
 import './autocomplete';
 import './charts';
 import './clipboard';
@@ -63,7 +84,7 @@ e.on('page-loaded', () => {
 
 e.on('page-init', () => {
   // Watch for all clicks on <button>s and fire the appropriate events.
-  $.delegate(document.body, 'click', 'button', (event) => {
+  $.delegate(document.body, 'click', 'button', event => {
     const button = event.target.closest('button');
     const type = button.getAttribute('data-event');
     if (type) {
@@ -72,7 +93,7 @@ e.on('page-init', () => {
   });
 
   // Watch for all submits of <forms>s and fire the appropriate events.
-  $.delegate(document.body, 'submit', 'form', (event) => {
+  $.delegate(document.body, 'submit', 'form', event => {
     const form = event.target;
     const type = form.getAttribute('data-event');
     if (type) {
@@ -87,17 +108,23 @@ e.on('page-init', () => {
 function doPoll() {
   $.fetch(`${window.favaAPI.baseURL}api/changed/`)
     .then(handleJSON)
-    .then((data) => {
-      if (data.changed) {
-        if (window.favaAPI.favaOptions['auto-reload']) {
-          e.trigger('reload');
-        } else {
-          $('#reload-page').classList.remove('hidden');
-          e.trigger('file-modified');
-          e.trigger('reload-warning', $('#reload-page').getAttribute('data-reload-text'));
+    .then(
+      data => {
+        if (data.changed) {
+          if (window.favaAPI.favaOptions['auto-reload']) {
+            e.trigger('reload');
+          } else {
+            $('#reload-page').classList.remove('hidden');
+            e.trigger('file-modified');
+            e.trigger(
+              'reload-warning',
+              $('#reload-page').getAttribute('data-reload-text'),
+            );
+          }
         }
-      }
-    }, () => {})
+      },
+      () => {},
+    )
     .then(() => {
       setTimeout(doPoll, 5000);
     });

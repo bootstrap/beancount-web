@@ -60,6 +60,25 @@ The possible options are `day`, `week`, `month`, `quarter`, and `year`.
 
 ---
 
+## `fiscal-year-end`
+
+Default: `12-31`
+
+The last day of the fiscal (financial or tax) period for accounting purposes in 
+`%m-%d` format.  Allows for the use of `FY2018`, `FY2018-Q3`, `fiscal_year` and 
+`fiscal_quarter` in the time filter.
+
+Examples are:
+
+* `09-30` - US federal government
+* `06-30` - Australia / NZ
+* `04-05` - UK
+
+See [Fiscal Year on WikiPedia](https://en.wikipedia.org/wiki/Fiscal_year) for 
+more examples.
+
+---
+
 ## `extensions`
 
 Default: Not set.
@@ -115,8 +134,12 @@ trees are shown at market value.
 
 Default: `transaction balance note document custom budget query`
 
-The entry types given in this list will be shown in the Journal report.
-All other types will be hidden and can be toggled using the buttons.
+The entry types and other elements given in this list will be shown in the
+Journal report. Supported values are entry type names, as well as well as
+the special values "metadata" and "postings" that determine the default
+visibility of the corresponding transaction parts.
+
+All other elements will be hidden and can be toggled using the buttons.
 
 ---
 

@@ -4,6 +4,8 @@ import operator
 import os
 import runpy
 from collections import namedtuple
+import sys
+import traceback
 
 from beancount.ingest import cache, identify, extract
 
@@ -27,22 +29,45 @@ class IngestModule(FavaModule):
             self.module_path = os.path.normpath(
                 os.path.join(
                     os.path.dirname(self.ledger.beancount_file_path),
-                    self.ledger.fava_options['import-config']))
+                    self.ledger.fava_options['import-config'],
+                )
+            )
 
             if not os.path.exists(self.module_path) or os.path.isdir(
-                    self.module_path):
+                self.module_path
+            ):
                 self.ledger.errors.append(
                     IngestError(
-                        None, "File does not exist: '{}'".format(
-                            self.module_path), None))
-            else:
+                        None,
+                        "File does not exist: '{}'".format(self.module_path),
+                        None,
+                    )
+                )
+                return
+
+            if os.stat(self.module_path).st_mtime_ns == self.mtime:
+                return
+
+            try:
                 mod = runpy.run_path(self.module_path)
-                self.mtime = os.stat(self.module_path).st_mtime_ns
-                self.config = mod['CONFIG']
-                self.importers = {
-                    importer.name(): importer
-                    for importer in self.config
-                }
+            except Exception:  # pylint: disable=broad-except
+                message = ''.join(traceback.format_exception(*sys.exc_info()))
+                self.ledger.errors.append(
+                    IngestError(
+                        None,
+                        "Error in importer '{}': {}".format(
+                            str(self.module_path), message
+                        ),
+                        None,
+                    )
+                )
+                return
+
+            self.mtime = os.stat(self.module_path).st_mtime_ns
+            self.config = mod['CONFIG']
+            self.importers = {
+                importer.name(): importer for importer in self.config
+            }
 
     def identify_directory(self, directory):
         """Identify files and importers for a given directory.
@@ -58,11 +83,14 @@ class IngestModule(FavaModule):
 
         full_path = os.path.normpath(
             os.path.join(
-                os.path.dirname(self.ledger.beancount_file_path), directory))
+                os.path.dirname(self.ledger.beancount_file_path), directory
+            )
+        )
 
         return filter(
             operator.itemgetter(1),
-            identify.find_imports(self.config, full_path))
+            identify.find_imports(self.config, full_path),
+        )
 
     def extract(self, filename, importer_name):
         """Extract entries from filename with the specified importer.
@@ -74,16 +102,20 @@ class IngestModule(FavaModule):
         Returns:
             A list of new imported entries.
         """
-        if not filename or not importer_name:
+        if not filename or not importer_name or not self.config:
             return []
 
         if os.stat(self.module_path).st_mtime_ns > self.mtime:
             self.load_file()
 
-        new_entries, _ = extract.extract_from_file(
+        new_entries = extract.extract_from_file(
             filename,
             self.importers.get(importer_name),
-            existing_entries=self.ledger.all_entries)
+            existing_entries=self.ledger.all_entries,
+        )
+
+        if isinstance(new_entries, tuple):
+            new_entries, _ = new_entries
 
         return new_entries
 

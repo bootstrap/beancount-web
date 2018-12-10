@@ -23,7 +23,7 @@ class FilterException(FavaAPIException):
         return self.message
 
 
-class FavaModule():
+class FavaModule:
     """Base class for the "modules" of FavaLedger."""
 
     def __init__(self, ledger):
@@ -31,4 +31,3 @@ class FavaModule():
 
     def load_file(self):
         """Get's called when the file has been (re)loaded."""
-        pass

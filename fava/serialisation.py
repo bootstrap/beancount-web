@@ -8,11 +8,12 @@ representation of the entry is provided.
 This is not intended to work well enough for full roundtrips yet.
 """
 
+import functools
 import re
 
-from beancount.core import data
-from beancount.core.amount import Amount
-from beancount.core.number import D
+from beancount.core import data, position
+from beancount.core.amount import A, Amount
+from beancount.core.number import D, MISSING
 
 from fava import util
 from fava.core.helpers import FavaAPIException
@@ -47,6 +48,7 @@ def parse_number(num):
     return D(num)
 
 
+@functools.singledispatch
 def serialise(entry):
     """Serialise an entry."""
     if not entry:
@@ -58,7 +60,42 @@ def serialise(entry):
             ret['narration'] += ' ' + ' '.join(['#' + t for t in entry.tags])
         if entry.links:
             ret['narration'] += ' ' + ' '.join(['^' + l for l in entry.links])
+        del ret['links']
+        del ret['tags']
+        ret['postings'] = [serialise(pos) for pos in entry.postings]
     return ret
+
+
+@serialise.register(data.Posting)
+def _serialise_posting(posting):
+    """Serialise a posting."""
+    if isinstance(posting.units, Amount):
+        position_str = position.to_string(posting)
+    else:
+        position_str = ''
+
+    if posting.price is not None:
+        position_str += ' @ {}'.format(posting.price.to_string())
+    return {'account': posting.account, 'amount': position_str}
+
+
+def deserialise_posting(posting):
+    """Parse JSON to a Beancount Posting."""
+    amount = posting.get('amount')
+    price = None
+    if amount:
+        if '@' in amount:
+            amount, raw_price = amount.split('@')
+            price = A(raw_price)
+        pos = position.from_string(amount)
+        units = pos.units
+        if re.search(r'{\s*}', amount):
+            cost = data.CostSpec(MISSING, None, MISSING, None, None, False)
+        else:
+            cost = pos.cost
+    else:
+        units, cost = None, None
+    return data.Posting(posting['account'], units, cost, price, None, None)
 
 
 def deserialise(json_entry):
@@ -74,25 +111,29 @@ def deserialise(json_entry):
     if json_entry['type'] == 'Transaction':
         date = util.date.parse_date(json_entry['date'])[0]
         narration, tags, links = extract_tags_links(json_entry['narration'])
-        txn = data.Transaction(json_entry['meta'], date, json_entry['flag'],
-                               json_entry['payee'], narration, tags, links, [])
-
-        for posting in json_entry['postings']:
-            data.create_simple_posting(txn, posting['account'],
-                                       parse_number(posting.get('number')),
-                                       posting.get('currency'))
-
-        return txn
+        postings = [deserialise_posting(pos) for pos in json_entry['postings']]
+        return data.Transaction(
+            json_entry['meta'],
+            date,
+            json_entry['flag'],
+            json_entry['payee'],
+            narration,
+            tags,
+            links,
+            postings,
+        )
     if json_entry['type'] == 'Balance':
         date = util.date.parse_date(json_entry['date'])[0]
         number = parse_number(json_entry['number'])
         amount = Amount(number, json_entry['currency'])
 
-        return data.Balance(json_entry['meta'], date, json_entry['account'],
-                            amount, None, None)
+        return data.Balance(
+            json_entry['meta'], date, json_entry['account'], amount, None, None
+        )
     if json_entry['type'] == 'Note':
         date = util.date.parse_date(json_entry['date'])[0]
         comment = json_entry['comment'].replace('"', '')
-        return data.Note(json_entry['meta'], date, json_entry['account'],
-                         comment)
+        return data.Note(
+            json_entry['meta'], date, json_entry['account'], comment
+        )
     raise FavaAPIException('Unsupported entry type.')
