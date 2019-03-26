@@ -48,7 +48,7 @@ MAXDATE = datetime.date.max
 class AccountData:
     """Holds information about an account."""
 
-    __slots__ = ('meta', 'close_date')
+    __slots__ = ("meta", "close_date")
 
     def __init__(self):
         #: The date on which this account is closed (or datetime.date.max).
@@ -83,7 +83,7 @@ class ExtensionModule(FavaModule):
 
     def load_file(self):
         self._extensions = []
-        for extension in self.ledger.fava_options['extensions']:
+        for extension in self.ledger.fava_options["extensions"]:
             extensions, errors = find_extensions(
                 os.path.dirname(self.ledger.beancount_file_path), extension
             )
@@ -100,15 +100,15 @@ class ExtensionModule(FavaModule):
 
 
 MODULES = [
-    'attributes',
-    'budgets',
-    'charts',
-    'extensions',
-    'file',
-    'format_decimal',
-    'misc',
-    'query_shell',
-    'ingest',
+    "attributes",
+    "budgets",
+    "charts",
+    "extensions",
+    "file",
+    "format_decimal",
+    "misc",
+    "query_shell",
+    "ingest",
 ]
 
 
@@ -122,24 +122,24 @@ class FavaLedger:
     """
 
     __slots__ = [
-        'account_types',
-        'accounts',
-        'all_entries',
-        'all_entries_by_type',
-        'all_root_account',
-        'beancount_file_path',
-        '_date_first',
-        '_date_last',
-        'entries',
-        'errors',
-        'fava_options',
-        '_filters',
-        '_is_encrypted',
-        'options',
-        'price_map',
-        'root_account',
-        'root_tree',
-        '_watcher',
+        "account_types",
+        "accounts",
+        "all_entries",
+        "all_entries_by_type",
+        "all_root_account",
+        "beancount_file_path",
+        "_date_first",
+        "_date_last",
+        "entries",
+        "errors",
+        "fava_options",
+        "_filters",
+        "_is_encrypted",
+        "options",
+        "price_map",
+        "root_account",
+        "root_tree",
+        "_watcher",
     ] + MODULES
 
     def __init__(self, path):
@@ -208,13 +208,12 @@ class FavaLedger:
             self.all_entries, self.errors, self.options = loader._load(
                 [(self.beancount_file_path, True)], None, None, None
             )
-            self.account_types = get_account_types(self.options)
-            self._watcher.update(*self.paths_to_watch())
         else:
             self.all_entries, self.errors, self.options = loader.load_file(
                 self.beancount_file_path
             )
-            self.account_types = get_account_types(self.options)
+
+        self.account_types = get_account_types(self.options)
         self.price_map = prices.build_price_map(self.all_entries)
         self.all_root_account = realization.realize(
             self.all_entries, self.account_types
@@ -234,13 +233,16 @@ class FavaLedger:
         self.fava_options, errors = parse_options(entries_by_type[Custom])
         self.errors.extend(errors)
 
+        if not self._is_encrypted:
+            self._watcher.update(*self.paths_to_watch())
+
         for mod in MODULES:
             getattr(self, mod).load_file()
 
         self._filters = {
-            'account': AccountFilter(self.options, self.fava_options),
-            'filter': AdvancedFilter(self.options, self.fava_options),
-            'time': TimeFilter(self.options, self.fava_options),
+            "account": AccountFilter(self.options, self.fava_options),
+            "filter": AdvancedFilter(self.options, self.fava_options),
+            "time": TimeFilter(self.options, self.fava_options),
         }
 
         self.filter(True)
@@ -272,15 +274,15 @@ class FavaLedger:
         if self._date_last:
             self._date_last = self._date_last + datetime.timedelta(1)
 
-        if self._filters['time']:
-            self._date_first = self._filters['time'].begin_date
-            self._date_last = self._filters['time'].end_date
+        if self._filters["time"]:
+            self._date_first = self._filters["time"].begin_date
+            self._date_last = self._filters["time"].end_date
 
     @property
     def end_date(self):
         """The date to use for prices."""
-        if self._filters['time']:
-            return self._filters['time'].end_date
+        if self._filters["time"]:
+            return self._filters["time"].end_date
         return None
 
     def paths_to_watch(self):
@@ -290,12 +292,15 @@ class FavaLedger:
             A tuple (files, directories).
         """
         include_path = os.path.dirname(self.beancount_file_path)
+        files = list(self.options["include"])
+        if self.fava_options["import-config"]:
+            files.append(self.ingest.module_path)
         return (
-            self.options['include'],
+            files,
             [
                 os.path.normpath(os.path.join(include_path, path, account))
                 for account in self.account_types
-                for path in self.options['documents']
+                for path in self.options["documents"]
             ],
         )
 
@@ -336,7 +341,7 @@ class FavaLedger:
     def root_tree_closed(self):
         """A root tree for the balance sheet."""
         tree = Tree(self.entries)
-        tree.cap(self.options, self.fava_options['unrealized'])
+        tree.cap(self.options, self.fava_options["unrealized"])
         return tree
 
     def interval_balances(self, interval, account_name, accumulate=False):
@@ -394,7 +399,6 @@ class FavaLedger:
         )
 
         if with_journal_children:
-            # pylint: disable=unused-variable
             postings = realization.get_postings(real_account)
         else:
             postings = real_account.txn_postings
@@ -411,12 +415,12 @@ class FavaLedger:
 
     def events(self, event_type=None):
         """List events (possibly filtered by type)."""
-        events = list(filter_type(self.entries, Event))
+        events = filter_type(self.entries, Event)
 
         if event_type:
-            return filter(lambda e: e.type == event_type, events)
+            return [event for event in events if event.type == event_type]
 
-        return events
+        return list(events)
 
     def get_entry(self, entry_hash):
         """Find an entry.
@@ -472,8 +476,8 @@ class FavaLedger:
         bw_pairs = []
         for currency_a, currency_b in fw_pairs:
             if (
-                currency_a in self.options['operating_currency']
-                and currency_b in self.options['operating_currency']
+                currency_a in self.options["operating_currency"]
+                and currency_b in self.options["operating_currency"]
             ):
                 bw_pairs.append((currency_b, currency_a))
         return sorted(fw_pairs + bw_pairs)
@@ -482,13 +486,13 @@ class FavaLedger:
         """List all prices."""
         all_prices = prices.get_all_prices(self.price_map, (base, quote))
 
-        if self._filters['time']:
+        if self._filters["time"]:
             return [
                 (date, price)
                 for date, price in all_prices
-                if self._filters['time'].begin_date
+                if self._filters["time"].begin_date
                 <= date
-                < self._filters['time'].end_date
+                < self._filters["time"].end_date
             ]
         return all_prices
 
@@ -527,17 +531,17 @@ class FavaLedger:
         value = entry.meta[metadata_key]
 
         beancount_dir = os.path.dirname(self.beancount_file_path)
-        paths = [os.path.join(beancount_dir, value)]
+        paths = [os.path.join(os.path.dirname(entry.meta["filename"]), value)]
         paths.extend(
             [
                 os.path.join(
                     beancount_dir,
                     document_root,
-                    *posting.account.split(':'),
+                    *posting.account.split(":"),
                     value
                 )
                 for posting in entry.postings
-                for document_root in self.options['documents']
+                for document_root in self.options["documents"]
             ]
         )
 
@@ -545,7 +549,7 @@ class FavaLedger:
             if os.path.isfile(path):
                 return path
 
-        raise FavaAPIException('Statement not found.')
+        raise FavaAPIException("Statement not found.")
 
     def account_uptodate_status(self, account_name):
         """Status of the last balance or transaction.
@@ -568,13 +572,13 @@ class FavaLedger:
         for txn_posting in reversed(real_account.txn_postings):
             if isinstance(txn_posting, Balance):
                 if txn_posting.diff_amount:
-                    return 'red'
-                return 'green'
+                    return "red"
+                return "green"
             if (
                 isinstance(txn_posting, TxnPosting)
                 and txn_posting.txn.flag != FLAG_UNREALIZED
             ):
-                return 'yellow'
+                return "yellow"
         return None
 
     def account_is_closed(self, account_name):
@@ -587,6 +591,6 @@ class FavaLedger:
             True if the account is closed before the end date of the current
             time filter.
         """
-        if self._filters['time']:
+        if self._filters["time"]:
             return self.accounts[account_name].close_date < self._date_last
         return self.accounts[account_name].close_date is not MAXDATE

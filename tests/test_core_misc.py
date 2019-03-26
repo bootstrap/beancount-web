@@ -1,3 +1,5 @@
+# pylint: disable=missing-docstring
+
 import datetime
 
 from beancount.loader import load_string
@@ -11,7 +13,7 @@ def test_sidebar_links(load_doc):
     2016-01-02 custom "fava-sidebar-link" "titl1" "lin1"
     """
     entries, _, _ = load_doc
-    assert sidebar_links(entries) == [('title', 'link'), ('titl1', 'lin1')]
+    assert sidebar_links(entries) == [("title", "link"), ("titl1", "lin1")]
 
 
 def test_upcoming_events():

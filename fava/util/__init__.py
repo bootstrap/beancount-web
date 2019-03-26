@@ -11,7 +11,7 @@ import time
 from flask import send_file
 from werkzeug.urls import url_quote
 
-BASEPATH = os.path.realpath(os.path.join(os.path.dirname(__file__), '..'))
+BASEPATH = os.path.realpath(os.path.join(os.path.dirname(__file__), ".."))
 
 
 def filter_api_changed(record):
@@ -21,8 +21,8 @@ def filter_api_changed(record):
 
 def setup_logging():
     """Setup logging for Fava."""
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
-    logging.getLogger('werkzeug').addFilter(filter_api_changed)
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    logging.getLogger("werkzeug").addFilter(filter_api_changed)
 
 
 def resource_path(relative_path):
@@ -34,26 +34,24 @@ def listify(func):
     """Decorator to make generator function return a list."""
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # pylint: disable=missing-docstring
+    def _wrapper(*args, **kwargs):
         return list(func(*args, **kwargs))
 
-    return wrapper
+    return _wrapper
 
 
 def timefunc(func):
     """Decorator to time function for debugging."""
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # pylint: disable=missing-docstring
+    def _wrapper(*args, **kwargs):
         start = time.time()
         result = func(*args, **kwargs)
         end = time.time()
-        print('Ran {} in {}'.format(func.__name__, end - start))
+        print("Ran {} in {}".format(func.__name__, end - start))
         return result
 
-    return wrapper
+    return _wrapper
 
 
 def pairwise(iterable):
@@ -74,18 +72,18 @@ def slugify(string):
         characters.
 
     """
-    string = unicodedata.normalize('NFKC', string)
+    string = unicodedata.normalize("NFKC", string)
     # remove all non-word characters (except '-')
-    string = re.sub(r'[^\s\w-]', '', string).strip().lower()
+    string = re.sub(r"[^\s\w-]", "", string).strip().lower()
     # replace spaces (or groups of spaces and dashes) with dashes
-    string = re.sub(r'[-\s]+', '-', string)
+    string = re.sub(r"[-\s]+", "-", string)
     return string
 
 
 def simple_wsgi(_, start_response):
     """A simple wsgi app that always returns an empty response."""
-    start_response('200 OK', [('Content-Type', 'text/html')])
-    return [b'']
+    start_response("200 OK", [("Content-Type", "text/html")])
+    return [b""]
 
 
 def send_file_inline(filename):
@@ -96,5 +94,5 @@ def send_file_inline(filename):
     response = send_file(filename)
     basename = os.path.basename(filename)
     cont_disp = "inline; filename*=UTF-8''{}".format(url_quote(basename))
-    response.headers['Content-Disposition'] = cont_disp
+    response.headers["Content-Disposition"] = cont_disp
     return response

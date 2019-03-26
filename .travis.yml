@@ -1,22 +1,23 @@
+dist: xenial
 language: python
+python: 3.7
 install: "pip install tox"
 script: "tox -e $TRAVIS_BUILD"
-python: 3.6
 
 matrix:
-  fast_finish: true
   include:
     - env: TRAVIS_BUILD=coverage
       before_install: "pip install codecov"
       after_success: "codecov"
-    - env: TRAVIS_BUILD=py36-dev
+    - env: TRAVIS_BUILD=py
+      python: 3.6
+    - env: TRAVIS_BUILD=py-dev
     - env: TRAVIS_BUILD=lint
-      dist: trusty
-      sudo: false
       before_install: "nvm use stable"
-      script: "make && make lint"
+      script:
+        - "tox -e $TRAVIS_BUILD"
+        - "cd fava/static && npm install && npm run lint"
 
 cache:
   directories:
     - $HOME/.cache
-    - $HOME/Library/Caches

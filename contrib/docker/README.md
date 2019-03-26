@@ -2,78 +2,73 @@
 
 ## Basic
 
-The Dockerfile in this directory is enough to get started running fava in a
-container.  This guide is meant as a compliment to the great documentation
+The Dockerfile in this directory is enough to get started running Fava in a
+container. This guide is meant as a compliment to the great documentation
 found at https://docs.docker.com/.
 
 ### Building
 
-The included Dockerfile builds beancount and fava at HEAD and describes how top
-run fava within the container.
-
-To build the container run this command:
+To build the image using the provided Dockerfile run this command:
 
 ```
 docker build -t fava .
 ```
 
-This will build everything and name the image `fava`.  Because docker depends
+This will build everything and name the image `fava`. Because docker depends
 heavily on caching to improve efficiency, to incorporate a new version of
-beancount or fava you must use the `--no-cache` flag when rebuilding the image.
+Beancount or Fava you must use the `--no-cache` flag when rebuilding the image.
 
 ### Deploying
 
-To run the fava container, use this command:
+To run the Fava container, use this command:
 
 ```
 docker run --detach --name="beancount" --publish 5000:5000 \
-  --volume $(pwd)/example.beancount:/example.beancount \
-  --env BEANCOUNT_INPUT_FILE=/example.beancount fava
+  --volume $(pwd)/example.beancount:/input.beancount \
+  --env BEANCOUNT_FILE=/input.beancount fava
 ```
 
 Let's look at each argument independently:
 
-1. `--detach` tells docker to start the image and exit.  The default behaviour
-   is to run until the command exits, but fava is a daemon so it never does.
-1. `--name` specifies a name to give the docker instance instead of generating
+1. `--detach` tells Docker to start the image and run it in the background as a
+   daemon.
+1. `--name` specifies a name to give the Docker instance instead of generating
    a random id. This will be used later.
-1. `--publish 5000:5000` tells docker to expose the container's port 5000 as
-   the local machine's port 5000.  This allows us to access fava with the url
+1. `--publish` tells Docker to expose the container's port 5000 as
+   the local machine's port 5000. This allows us to access Fava with the url
    http://localhost:5000/.
-1. `--volume $(pwd)/example.beancount:/example.beancount` tells docker to share
-   the example.beancount file in the current directory to the container as the
-   file `/example.beancount`.
-1. `--env BEANCOUNT_INPUT_FILE=/example.beancount` tells the fava command where
-   to look for the beancount file.
+1. `--volume` tells Docker to share the example.beancount file in the current
+   directory to the container as the file `/input.beancount`.
+1. `--env` tells Fava where to find the Beancount file.
 
-Going to http://localhost:5000/ will display your fava instance.
+Going to http://localhost:5000/ will display your Fava instance.
 
 ## Advanced
 
-Hosting a local docker instance is nice and all, but what we really want is a
-globally available, authenticated, secure deployment of fava.  To do that we
+Hosting a local Docker instance is nice and all, but what we really want is a
+globally available, authenticated, secure deployment of Fava. To do that we
 need two other parts: oauth proxy and letsencrypt.
 
 ### Oauth proxy
 
 Oauth is an authentication standard that makes it easy to authenticate using a
-third party account.  Using oauth means we can limit access to our site without
+third party account. Using oauth means we can limit access to our site without
 requiring mobile users to enter complicated passwords.
 
-We will be using bitly's [oauth2\_proxy](https://github.com/bitly/oauth2_proxy)
+We will be using bitly's [oauth2_proxy](https://github.com/bitly/oauth2_proxy)
 to manage access to our site.
 
 I recommend using the
-[skippy/oauth2\_proxy](https://hub.docker.com/r/skippy/oauth2_proxy/) docker
-image. It is an alpinelinux-based docker image with bitly's oauth2\_proxy
-packaged. It uses an older version of oauth2\_proxy, which is fine enough for
-fava, but it is left as an exercise to the reader to build an updated version.
+[skippy/oauth2_proxy](https://hub.docker.com/r/skippy/oauth2_proxy/) Docker
+image. It is an alpinelinux-based Docker image with bitly's oauth2_proxy
+packaged. It uses an older version of oauth2_proxy, which is fine enough for
+Fava, but it is left as an exercise to the reader to build an updated version.
 
 It can be configured entirely using command line flags, but it is generally
 easier to configure using a file.
 
 Follow the Google Auth Provider instructions in the
-[oauth2\_proxy](https://github.com/bitly/oauth2_proxy) README to generate a
+[oauth2_proxy](https://github.com/bitly/oauth2_proxy) README to generate a
 Client ID and Client Secret and fill out the `oauth2_proxy.cfg`.
 
 The file will look something like this:
@@ -157,7 +152,7 @@ cookie_httponly = true
 ```
 
 Create an `authenticated-emails` file in the same directory filled with all the
-gmail accounts you want to have access to your fava web interface.
+gmail accounts you want to have access to your Fava web interface.
 
 To run your proxy docker image use the following command:
 
@@ -175,15 +170,15 @@ Let's document the new arguments:
 
 1. `--link` tells docker to link one container to another, so they can access
    each other's exposed ports, and properly set up hostname mappings. This is
-   why `upstreams` in the oauth2\_proxy config is `http://beancount:5000`.
+   why `upstreams` in the oauth2_proxy config is `http://beancount:5000`.
 1. `--volume` maps host paths into docker instances. This is one way of getting
    data into a docker instance.
 1. `--env` sets arbitrary environment values in docker instances. We will use
    these values in later sections to hook up automatically generate and refresh
    Let's Encrypt SSL certificates. Without a Let's Encrypt certificate, your
-   oauth2\_proxy cookie will be visible to anyone who can see your network
+   oauth2_proxy cookie will be visible to anyone who can see your network
    traffic. You don't want this.
-1. Everything after the `skippy/oauth2_proxy` are arguments to oauth2\_proxy.
+1. Everything after the `skippy/oauth2_proxy` are arguments to oauth2_proxy.
 
 This will start an oauth2 proxy using your config to do authentication using
 Google's OAuth service. It's important that you don't try to access your
@@ -194,7 +189,7 @@ cookie to the internet.
 
 [Let's Encrypt](https://letsencrypt.org/) is a very popular project aimed at
 making SSL certificates available to everyone for free. This will be a great
-way to secure our fava instance so that we can share secret cookies without
+way to secure our Fava instance so that we can share secret cookies without
 fear of anyone impersonating us.
 
 We don't just want to set up a static Let's Encrypt config. We want to use the
@@ -249,4 +244,4 @@ Now all you have to do is expose port 80 and 443 from your host machine to the
 internet and point the domain you specified in `VIRTUAL_HOST` and
 `LETSENCRYPT_HOST` to your IP. Once all these parts are set up point your
 browser to your virtual host domain and enjoy a fully authenticated, secure,
-publicly addressable fava instance.
+publicly addressable Fava instance.
