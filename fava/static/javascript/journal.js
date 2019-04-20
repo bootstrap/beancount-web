@@ -1,4 +1,4 @@
-import { $, $$ } from "./helpers";
+import { $, $$, delegate } from "./helpers";
 import e from "./events";
 import router from "./router";
 
@@ -13,10 +13,10 @@ function addFilter(value) {
 }
 
 e.on("page-loaded", () => {
-  const journal = $("#journal-table");
+  const journal = $(".journal");
   if (!journal) return;
 
-  $.delegate(journal, "click", "li", event => {
+  delegate(journal, "click", "li", event => {
     if (event.target.tagName === "A") {
       return;
     }
