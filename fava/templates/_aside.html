@@ -1,7 +1,6 @@
 {% import '_globals.html' as globals with context %}
 {% set user_queries = ledger.query_shell.queries[:ledger.fava_options['sidebar-show-queries']] %}
 {% if ledger.misc.sidebar_links %}
-<h3>{{ _('Custom Links') }}</h3>
 <ul class="navigation">
   {% for label, link in ledger.misc.sidebar_links %}
   <li><a href="{{ link }}" data-remote>{{ label }}</a></li>
@@ -38,3 +37,10 @@
   {% endfor %}
 </ul>
 {% endfor %}
+{% if ledger.extensions.reports %}
+<ul class="navigation">
+  {% for name, label in ledger.extensions.reports %}
+  <li><a href="{{ url_for('extension_report', report_name=name)}}">{{ label }}</a></li>
+  {% endfor %}
+</ul>
+{% endif %}

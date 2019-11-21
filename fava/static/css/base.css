@@ -64,7 +64,7 @@ table {
 
 td,
 th {
-  padding: 2px 6px;
+  padding: 2px 5px;
   white-space: nowrap;
 }
 
@@ -90,6 +90,10 @@ tbody tr:nth-child(2n) {
 
 tbody td {
   border: 1px solid var(--color-table-border);
+}
+
+table input {
+  margin: 0;
 }
 
 table pre {
@@ -158,7 +162,6 @@ a img {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  margin-right: -0.5em;
 }
 
 button,
@@ -307,7 +310,6 @@ button.round,
 
 body {
   padding: var(--header-height) 0 0 var(--aside-width);
-  transition: var(--transitions);
 }
 
 header {
@@ -328,7 +330,6 @@ header {
   z-index: var(--z-index-floating-ui);
   display: none;
   background-color: var(--color-sidebar-background);
-  transition: var(--transitions);
 }
 
 .aside-button:hover {
@@ -348,14 +349,6 @@ aside {
   color: var(--color-sidebar-text);
   background-color: var(--color-sidebar-background);
   border-right: 1px solid var(--color-sidebar-border);
-  transition: var(--transitions);
-}
-
-aside h3 {
-  margin: 1em 0 1em 20px;
-  font-size: 0.9em;
-  text-transform: uppercase;
-  opacity: 0.6;
 }
 
 .navigation {
@@ -371,7 +364,7 @@ aside h3 {
 
 .navigation a {
   display: block;
-  padding: 4px 5px 4px 20px;
+  padding: 0.25em 0.5em 0.25em 1em;
   color: inherit;
 }
 
@@ -386,7 +379,6 @@ aside h3 {
   line-height: 23px;
   color: inherit;
   background-color: var(--color-sidebar-background);
-  transition: var(--transitions);
 }
 
 .navigation .add-transaction-button {
@@ -641,42 +633,4 @@ td .status-indicator {
 
 .options td:nth-child(2) {
   white-space: normal;
-}
-
-.autocomplete {
-  z-index: var(--z-index-autocomplete);
-  overflow-x: hidden;
-  overflow-y: auto;
-  background-color: var(--color-background);
-  border: 1px solid var(--color-background-darkest);
-  box-shadow: 0 3px 3px var(--color-background-darker);
-}
-
-.autocomplete li {
-  min-width: 8rem;
-  padding: 0 0.5em;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.autocomplete li.selected,
-.autocomplete li:hover {
-  color: var(--color-background);
-  background-color: var(--color-links);
-}
-
-.autocomplete li span::before {
-  position: absolute;
-  z-index: -1;
-  width: 0.65em;
-  height: 1.2em;
-  margin-top: 0.12em;
-  margin-left: -0.1em;
-  content: "";
-  background-color: var(--color-autocomplete-match);
-  border-radius: 2px;
-}
-
-.autocomplete:empty {
-  display: none;
 }

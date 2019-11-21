@@ -13,7 +13,7 @@ from fava.template_filters import (
     get_or_create,
     should_show,
     format_errormsg,
-    collapse_account_at_level,
+    collapse_account,
 )
 
 
@@ -64,25 +64,23 @@ def test_format_errormsg(app):
         assert format_errormsg("Test: Test") == "Test: Test"
 
 
-def test_collapse_account_at_level(app):
+def test_collapse_account(app):
     with app.test_request_context("/"):
         app.preprocess_request()
-        g.ledger.fava_options["collapse-below-level"] = 1
+        g.ledger.fava_options["collapse-pattern"] = [
+            "^Assets:Stock$",
+            "^Assets:Property:.*",
+        ]
         g.ledger.accounts["Assets:Stock"] = AccountData()
         g.ledger.accounts["Assets:Property"] = AccountData()
-        g.ledger.accounts["Assets:Stock"].meta["fava-collapse-account"] = True
-        g.ledger.accounts["Assets:Property"].meta[
-            "fava-collapse-account"
-        ] = False
 
-        assert collapse_account_at_level("Assets:Cash", 0) is False
-        assert collapse_account_at_level("Assets:Cash", 1) is True
-        assert collapse_account_at_level("Assets:Cash", 2) is True
+        assert collapse_account("Assets:Cash") is False
+        assert collapse_account("Assets:Cash") is False
 
-        assert collapse_account_at_level("Assets:Stock", 0) is True
-        assert collapse_account_at_level("Assets:Stock", 1) is True
-        assert collapse_account_at_level("Assets:Stock", 2) is True
+        assert collapse_account("Assets:Stock") is True
+        assert collapse_account("Assets:Stock") is True
+        assert collapse_account("Assets:Stock") is True
 
-        assert collapse_account_at_level("Assets:Property", 0) is False
-        assert collapse_account_at_level("Assets:Property", 1) is False
-        assert collapse_account_at_level("Assets:Property", 2) is False
+        assert collapse_account("Assets:Property") is False
+        assert collapse_account("Assets:Property:Real") is True
+        assert collapse_account("Assets:Property:Real:Land") is True

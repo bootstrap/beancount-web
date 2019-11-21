@@ -4,9 +4,12 @@ extensions = [
     "sphinx.ext.extlinks",
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx_autodoc_typehints",
 ]
 source_suffix = ".rst"
 master_doc = "index"
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
 # General information about the project.
 project = "Fava"
@@ -48,6 +51,7 @@ html_theme_options = {
     "show_powered_by": "false",
     "extra_nav_links": {
         "fava @ GitHub": "https://github.com/beancount/fava",
+        "Chat": "https://gitter.im/beancount/fava",
         "Issue Tracker": "https://github.com/beancount/fava/issues",
     },
     "link": "#3572b0",

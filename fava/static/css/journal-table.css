@@ -1,58 +1,46 @@
 /* stylelint-disable no-descending-specificity */
 
-.tree-table p,
-.tree-table li,
-.tree-table ul,
-.tree-table ol,
-.journal p,
-.journal li,
-.journal ul,
-.journal ol {
+.flex-table p,
+.flex-table li,
+.flex-table ul,
+.flex-table ol {
   padding: 0;
   margin: 0;
 }
 
-.tree-table p,
-.journal p {
+.flex-table p {
   display: flex;
 }
 
-.tree-table p > span,
-.journal p > span {
+.flex-table p > span {
   flex-shrink: 0;
   padding: 2px 4px;
   margin: 0;
 }
 
-.tree-table .num,
-.journal .num {
+.flex-table .num {
   font-family: var(--font-family-monospaced);
   color: var(--color-text);
   text-align: right;
 }
 
-.tree-table .number,
-.journal .num {
+.flex-table .number {
   white-space: nowrap;
 }
 
-.tree-table .head p > span,
-.journal .head p > span {
+.flex-table .head p > span {
   padding: 3px 4px;
   color: var(--color-table-header-text);
   background-color: var(--color-table-header-background);
 }
 
-.tree-table .head .num,
-.journal .head .num {
+.flex-table .head .num {
   font-family: var(--font-family);
   color: var(--color-table-header-text);
-  text-align: inherit;
   background-color: var(--color-table-header-background);
 }
 
-.tree-table .totals p > span,
-.journal .totals p > span {
+.flex-table .totals p > span {
   color: var(--color-table-header-text);
   background-color: var(--color-table-header-background);
 }
@@ -112,13 +100,13 @@
 }
 
 /* Metadata */
-.journal dl {
+.journal .metadata {
   padding: 2px 0;
   margin: 0;
   font-size: 0.9em;
 }
 
-.journal dt {
+.journal .metadata dt {
   display: inline-block;
   float: left;
   width: auto;
@@ -127,7 +115,7 @@
   color: var(--color-journal-metadata);
 }
 
-.journal dd {
+.journal .metadata dd {
   margin-left: 15rem;
   cursor: pointer;
 }
@@ -202,7 +190,8 @@
   filter: brightness(80%);
 }
 
-.journal .filename {
+.journal .filename,
+.journal .url {
   font-family: var(--font-family-monospaced);
   font-size: 0.9em;
 }

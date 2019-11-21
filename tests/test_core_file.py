@@ -1,23 +1,21 @@
 # pylint: disable=missing-docstring
-
 import datetime
-from textwrap import dedent
 import re
+from textwrap import dedent
 
 import pytest
-from beancount.core import data, amount
+from beancount.core import amount
+from beancount.core import data
 from beancount.core.number import D
 
-from fava.core.helpers import FavaAPIException
-from fava.core.file import (
-    next_key,
-    leading_space,
-    insert_metadata_in_file,
-    insert_entry,
-    get_entry_slice,
-    save_entry_slice,
-)
 from fava.core.fava_options import InsertEntryOption
+from fava.core.file import get_entry_slice
+from fava.core.file import insert_entry
+from fava.core.file import insert_metadata_in_file
+from fava.core.file import leading_space
+from fava.core.file import next_key
+from fava.core.file import save_entry_slice
+from fava.core.helpers import FavaAPIException
 
 
 def test_get_entry_slice(example_ledger):
@@ -142,6 +140,7 @@ def test_insert_entry_transaction(tmpdir):
         postings,
     )
 
+    # Test insertion without "insert-entry" options.
     insert_entry(transaction, [str(samplefile)], {})
     assert samplefile.read() == dedent(
         """
@@ -156,6 +155,8 @@ def test_insert_entry_transaction(tmpdir):
     """
     )
 
+    # Verify that InsertEntryOptions with dates greater or equal than the
+    # transaction dates are ignored.
     options = [
         InsertEntryOption(
             datetime.date(2015, 1, 1),
@@ -176,10 +177,11 @@ def test_insert_entry_transaction(tmpdir):
             6,
         ),
     ]
+    transaction = transaction._replace(narration="narr1")
     insert_entry(transaction, [str(samplefile)], {"insert-entry": options})
     assert samplefile.read() == dedent(
         """
-        2016-01-01 * "new payee" "narr"
+        2016-01-01 * "new payee" "narr1"
           Liabilities:US:Chase:Slate                         -10.00 USD
           Expenses:Food                                       10.00 USD
 
@@ -194,12 +196,14 @@ def test_insert_entry_transaction(tmpdir):
     """
     )
 
+    # Verify that previous postings are matched against InsertEntryOptions when
+    # the last posting doesn't match.
     options = [
         InsertEntryOption(
             datetime.date(2015, 1, 1),
             re.compile(".*:Slate"),
             str(samplefile),
-            5,
+            6,
         ),
         InsertEntryOption(
             datetime.date(2015, 1, 2),
@@ -208,16 +212,60 @@ def test_insert_entry_transaction(tmpdir):
             2,
         ),
     ]
+    transaction = transaction._replace(narration="narr2")
     insert_entry(transaction, [str(samplefile)], {"insert-entry": options})
     assert samplefile.read() == dedent(
         """
-        2016-01-01 * "new payee" "narr"
+        2016-01-01 * "new payee" "narr1"
           Liabilities:US:Chase:Slate                         -10.00 USD
           Expenses:Food                                       10.00 USD
+
+        2016-01-01 * "new payee" "narr2"
+          Liabilities:US:Chase:Slate                         -10.00 USD
+          Expenses:Food                                       10.00 USD
+
+        2016-02-26 * "Uncle Boons" "Eating out alone"
+            Liabilities:US:Chase:Slate                       -24.84 USD
+            Expenses:Food:Restaurant                          24.84 USD
+
         2016-01-01 * "new payee" "narr"
           Liabilities:US:Chase:Slate                         -10.00 USD
           Expenses:Food                                       10.00 USD
 
+    """
+    )
+
+    # Verify that preference is given to InsertEntryOptions with later dates in
+    # case several of them match a posting.
+    options = [
+        InsertEntryOption(
+            datetime.date(2015, 1, 1),
+            re.compile(".*:Food"),
+            str(samplefile),
+            6,
+        ),
+        InsertEntryOption(
+            datetime.date(2015, 1, 2),
+            re.compile(".*:Food"),
+            str(samplefile),
+            2,
+        ),
+    ]
+    transaction = transaction._replace(narration="narr3")
+    insert_entry(transaction, [str(samplefile)], {"insert-entry": options})
+    assert samplefile.read() == dedent(
+        """
+        2016-01-01 * "new payee" "narr3"
+          Liabilities:US:Chase:Slate                         -10.00 USD
+          Expenses:Food                                       10.00 USD
+
+        2016-01-01 * "new payee" "narr1"
+          Liabilities:US:Chase:Slate                         -10.00 USD
+          Expenses:Food                                       10.00 USD
+
+        2016-01-01 * "new payee" "narr2"
+          Liabilities:US:Chase:Slate                         -10.00 USD
+          Expenses:Food                                       10.00 USD
 
         2016-02-26 * "Uncle Boons" "Eating out alone"
             Liabilities:US:Chase:Slate                       -24.84 USD

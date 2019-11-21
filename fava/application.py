@@ -70,6 +70,7 @@ REPORTS = [
     "_context",
     "balance_sheet",
     "commodities",
+    "documents",
     "events",
     "editor",
     "errors",
@@ -271,14 +272,18 @@ def account(name, subreport="journal"):
 def document():
     """Download a document."""
     filename = request.args.get("filename")
-    if not any(
-        (
-            filename == document.filename
-            for document in g.ledger.all_entries_by_type[Document]
-        )
-    ):
-        abort(404)
-    return send_file_inline(filename)
+    filenames = [
+        document.filename
+        for document in g.ledger.all_entries_by_type[Document]
+    ]
+    import_directories = [
+        g.ledger.join_path(d) for d in g.ledger.fava_options["import-dirs"]
+    ]
+    if filename in filenames:
+        return send_file_inline(filename)
+    if any(filename.startswith(d) for d in import_directories):
+        return send_file_inline(filename)
+    return abort(404)
 
 
 @app.route("/<bfile>/statement/", methods=["GET"])
@@ -295,10 +300,11 @@ def holdings_by(aggregation_key):
     """The holdings report."""
     if aggregation_key in ["account", "currency", "cost_currency"]:
         return render_template(
-            "holdings.html", aggregation_key=aggregation_key
+            "_layout.html",
+            active_page="holdings",
+            aggregation_key=aggregation_key,
         )
-    abort(404)
-    return None
+    return abort(404)
 
 
 @app.route("/<bfile>/_context/")
@@ -307,13 +313,33 @@ def context():
     return render_template("_context.html")
 
 
+@app.route("/<bfile>/query/")
+def query():
+    """Query shell."""
+    return render_template("query.html")
+
+
 @app.route("/<bfile>/<report_name>/")
 def report(report_name):
     """Endpoint for most reports."""
     if report_name in REPORTS:
         return render_template("_layout.html", active_page=report_name)
-    abort(404)
-    return None
+    return abort(404)
+
+
+@app.route("/<bfile>/extension/<report_name>/")
+def extension_report(report_name):
+    """Endpoint for extension reports."""
+    try:
+        template, extension = g.ledger.extensions.template_and_extension(
+            report_name
+        )
+        content = render_template_string(template, extension=extension)
+        return render_template(
+            "_layout.html", content=content, page_title=extension.report_title
+        )
+    except LookupError:
+        return abort(404)
 
 
 @app.route("/<bfile>/download-query/query_result.<result_format>")

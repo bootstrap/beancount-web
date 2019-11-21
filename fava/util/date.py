@@ -8,6 +8,7 @@ Note:
 import enum
 import re
 import datetime
+from typing import Optional, Iterator, Tuple
 
 from flask_babel import gettext
 
@@ -58,7 +59,7 @@ class Interval(enum.Enum):
         }.get(self)
 
     @staticmethod
-    def get(string):
+    def get(string: str) -> enum.Enum:
         """Return the enum member for a string."""
         try:
             return Interval[string.upper()]
@@ -66,13 +67,15 @@ class Interval(enum.Enum):
             return Interval.MONTH
 
     @staticmethod
-    def members():
+    def members() -> Iterator[enum.Enum]:
         """Yield all members of this Enum."""
         for interval in Interval:
             yield interval
 
 
-def get_next_interval(date: datetime.date, interval: Interval):
+def get_next_interval(
+    date: datetime.date, interval: Interval
+) -> datetime.date:
     """Get the start date of the next interval.
 
     Args:
@@ -83,30 +86,36 @@ def get_next_interval(date: datetime.date, interval: Interval):
         The start date of the next `interval` after `date`.
 
     """
-    if interval is Interval.YEAR:
-        return datetime.date(date.year + 1, 1, 1)
-    if interval is Interval.QUARTER:
-        for i in [4, 7, 10]:
-            if date.month < i:
-                return datetime.date(date.year, i, 1)
-        return datetime.date(date.year + 1, 1, 1)
-    if interval is Interval.MONTH:
-        month = (date.month % 12) + 1
-        year = date.year + (date.month + 1 > 12)
-        return datetime.date(year, month, 1)
-    if interval is Interval.WEEK:
-        return date + datetime.timedelta(7 - date.weekday())
-    if interval is Interval.DAY:
-        return date + datetime.timedelta(1)
+    # pylint: disable=too-many-return-statements
+    try:
+        if interval is Interval.YEAR:
+            return datetime.date(date.year + 1, 1, 1)
+        if interval is Interval.QUARTER:
+            for i in [4, 7, 10]:
+                if date.month < i:
+                    return datetime.date(date.year, i, 1)
+            return datetime.date(date.year + 1, 1, 1)
+        if interval is Interval.MONTH:
+            month = (date.month % 12) + 1
+            year = date.year + (date.month + 1 > 12)
+            return datetime.date(year, month, 1)
+        if interval is Interval.WEEK:
+            return date + datetime.timedelta(7 - date.weekday())
+        if interval is Interval.DAY:
+            return date + datetime.timedelta(1)
+    except (ValueError, OverflowError):
+        return datetime.date.max
     raise NotImplementedError
 
 
-def interval_ends(first, last, interval: Interval):
+def interval_ends(
+    first: datetime.date, last: datetime.date, interval: Interval
+) -> Iterator[datetime.date]:
     """List intervals.
 
     Args:
-        first: A datetime.date.
-        last: A datetime.date.
+        first: A date.
+        last: A date.
         interval: An interval.
 
     Yields:
@@ -120,7 +129,7 @@ def interval_ends(first, last, interval: Interval):
     yield last
 
 
-def substitute(string, fye=None):  # pylint: disable=too-many-locals
+def substitute(string: str, fye: Optional[str] = None) -> str:
     """Replace variables referring to the current day.
 
     Args:
@@ -132,16 +141,17 @@ def substitute(string, fye=None):  # pylint: disable=too-many-locals
         'week' have been replaced by the corresponding string understood by
         :func:`parse_date`.  Can compute addition and subtraction.
     """
+    # pylint: disable=too-many-locals
     today = datetime.date.today()
 
     for match in VARIABLE_RE.finditer(string):
-        complete_match, interval, plusminus, mod = match.group(0, 1, 2, 3)
-        mod = int(mod) if mod else 0
-        plusminus = 1 if plusminus == "+" else -1
+        complete_match, interval, plusminus_, mod_ = match.group(0, 1, 2, 3)
+        mod = int(mod_) if mod_ else 0
+        plusminus = 1 if plusminus_ == "+" else -1
         if interval == "fiscal_year":
             year = today.year
             start, end = get_fiscal_period(year, fye)
-            if today >= end:
+            if end and today >= end:
                 year += 1
             year += plusminus * mod
             string = string.replace(complete_match, "FY{0}".format(year))
@@ -151,18 +161,19 @@ def substitute(string, fye=None):  # pylint: disable=too-many-locals
         if interval == "fiscal_quarter":
             target = month_offset(today.replace(day=1), plusminus * mod * 3)
             start, end = get_fiscal_period(target.year, fye)
-            if start.day != 1:
+            if start and start.day != 1:
                 raise ValueError(
                     "Cannot use fiscal_quarter if fiscal year "
                     "does not start on first of the month"
                 )
-            if target >= end:
+            if end and target >= end:
                 start = end
-            quarter = int(((target.month - start.month) % 12) / 3)
-            string = string.replace(
-                complete_match,
-                "FY{0}-Q{1}".format(start.year + 1, (quarter % 4) + 1),
-            )
+            if start:
+                quarter = int(((target.month - start.month) % 12) / 3)
+                string = string.replace(
+                    complete_match,
+                    "FY{0}-Q{1}".format(start.year + 1, (quarter % 4) + 1),
+                )
         if interval == "quarter":
             quarter_today = (today.month - 1) // 3 + 1
             year = today.year + (quarter_today + plusminus * mod - 1) // 4
@@ -189,7 +200,9 @@ def substitute(string, fye=None):  # pylint: disable=too-many-locals
     return string
 
 
-def parse_date(string, fye=None):  # pylint: disable=too-many-return-statements
+def parse_date(
+    string: str, fye: Optional[str] = None
+) -> Tuple[Optional[datetime.date], Optional[datetime.date]]:
     """Parse a date.
 
     Example of supported formats:
@@ -210,8 +223,8 @@ def parse_date(string, fye=None):  # pylint: disable=too-many-return-statements
 
     Returns:
         A tuple (start, end) of dates.
-
     """
+    # pylint: disable=too-many-return-statements
     string = string.strip().lower()
     if not string:
         return None, None
@@ -242,7 +255,7 @@ def parse_date(string, fye=None):  # pylint: disable=too-many-return-statements
 
     match = WEEK_RE.match(string)
     if match:
-        year, week = match.group(1, 2)
+        year, week = map(int, match.group(1, 2))
         date_str = "{}{}1".format(year, week)
         first_week_day = datetime.datetime.strptime(date_str, "%Y%W%w").date()
         return first_week_day, get_next_interval(first_week_day, Interval.WEEK)
@@ -269,7 +282,7 @@ def parse_date(string, fye=None):  # pylint: disable=too-many-return-statements
     return None, None
 
 
-def month_offset(date, months):
+def month_offset(date: datetime.date, months: int) -> datetime.date:
     """Offsets a date by a given number of months
 
     Maintains the day, unless that day is invalid when it will
@@ -282,14 +295,16 @@ def month_offset(date, months):
     return date.replace(year=date.year + year_delta, month=month + 1)
 
 
-def get_fiscal_period(year, fye, quarter=None):
+def get_fiscal_period(
+    year: int, fye: Optional[str], quarter: Optional[int] = None
+) -> Tuple[Optional[datetime.date], Optional[datetime.date]]:
     """Calculates fiscal periods
 
     Uses the fava option "fiscal-year-end" which should be in "%m-%d" format.
     Defaults to calendar year [12-31]
 
     Args:
-        year: An interger year
+        year: An integer year
         fye: End date for period in "%m-%d" format
         quarter: one of [None, 1, 2, 3 or 4]
 
@@ -307,6 +322,9 @@ def get_fiscal_period(year, fye, quarter=None):
                 )
                 + datetime.timedelta(days=1)
             ).date()
+            # Special case 02-28 because of leap years
+            if fye == "02-28":
+                start_date = start_date.replace(month=3, day=1)
         except ValueError:
             return None, None
 
@@ -328,7 +346,9 @@ def get_fiscal_period(year, fye, quarter=None):
     return start_date, end_date
 
 
-def days_in_daterange(start_date, end_date):
+def days_in_daterange(
+    start_date: datetime.date, end_date: datetime.date
+) -> Iterator[datetime.date]:
     """Yield a datetime for every day in the specified interval.
 
     Args:
@@ -343,7 +363,7 @@ def days_in_daterange(start_date, end_date):
         yield start_date + datetime.timedelta(diff)
 
 
-def number_of_days_in_period(interval, date):
+def number_of_days_in_period(interval: Interval, date: datetime.date) -> int:
     """Number of days in the surrounding interval.
 
     Args:

@@ -2,8 +2,8 @@
   import { afterUpdate, onMount } from "svelte";
 
   import initSourceEditor from "../editor";
-  import { _, fetch, delegate, handleText } from "../helpers";
-  import { urlHash } from "../stores";
+  import { fetch, delegate, handleText } from "../helpers";
+  import { urlHash, favaAPI } from "../stores";
 
   import ModalBase from "./ModalBase.svelte";
 
@@ -12,7 +12,7 @@
   $: entryHash = shown ? $urlHash.slice(8) : "";
   $: content = !shown
     ? ""
-    : fetch(`${window.favaAPI.baseURL}_context/?entry_hash=${entryHash}`).then(
+    : fetch(`${favaAPI.baseURL}_context/?entry_hash=${entryHash}`).then(
         handleText
       );
 
@@ -28,9 +28,15 @@
     initSourceEditor("#source-slice-editor");
   });
 </script>
+
 <ModalBase {shown}>
-  <div class="content" bind:this="{div}">
-    {#await content} Loading entry context... {:then html} {@html html} {:catch}
-    Loading entry context failed. {/await}
+  <div class="content" bind:this={div}>
+    {#await content}
+      Loading entry context...
+    {:then html}
+      {@html html}
+    {:catch}
+      Loading entry context failed.
+    {/await}
   </div>
 </ModalBase>

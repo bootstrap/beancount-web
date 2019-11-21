@@ -1,13 +1,22 @@
 # pylint: disable=missing-docstring
 
 import os
+from pathlib import Path
+from pprint import pformat
 
 import pytest
 
 from beancount.loader import load_string
 from fava.core import FavaLedger
-from fava.application import app as fava_app
+from fava.application import _load_file, app as fava_app
 from fava.core.budgets import parse_budgets
+
+
+def create_app(bfile):
+    key = "BEANCOUNT_FILES"
+    if (key not in fava_app.config) or (fava_app.config[key] != [bfile]):
+        fava_app.config[key] = [bfile]
+        _load_file()
 
 
 def data_file(filename):
@@ -15,15 +24,51 @@ def data_file(filename):
 
 
 EXAMPLE_FILE = data_file("long-example.beancount")
+EXTENSION_REPORT_EXAMPLE_FILE = data_file("extension-report-example.beancount")
+
 API = FavaLedger(EXAMPLE_FILE)
 
 fava_app.testing = True
 TEST_CLIENT = fava_app.test_client()
-fava_app.config["BEANCOUNT_FILES"] = [EXAMPLE_FILE]
+create_app(EXAMPLE_FILE)
+
+
+SNAPSHOT_UPDATE = bool(os.environ.get("SNAPSHOT_UPDATE"))
+MSG = "Maybe snapshots need to be updated with `SNAPSHOT_UPDATE=1 make test`?"
+
+
+@pytest.fixture
+def snapshot(request):
+    file_path = Path(request.fspath)
+    fn_name = request.function.__name__
+    snap_dir = file_path.parent / "__snapshots__"
+    snap_file = snap_dir / (file_path.name + "-" + fn_name)
+    if not snap_dir.exists():
+        snap_dir.mkdir()
+
+    def _snapshot_data(data):
+        out = pformat(data)
+        if not snap_file.exists():
+            contents = ""
+        else:
+            contents = open(snap_file).read()
+        if SNAPSHOT_UPDATE:
+            open(snap_file, "w").write(out)
+            return
+        assert out == contents, MSG
+
+    return _snapshot_data
+
+
+@pytest.fixture
+def extension_report_app():
+    create_app(EXTENSION_REPORT_EXAMPLE_FILE)
+    return fava_app
 
 
 @pytest.fixture
 def app():
+    create_app(EXAMPLE_FILE)
     return fava_app
 
 
@@ -35,6 +80,11 @@ def test_client():
 @pytest.fixture
 def load_doc(request):
     return load_string(request.function.__doc__, dedent=True)
+
+
+@pytest.fixture
+def extension_report_ledger():
+    return FavaLedger(EXTENSION_REPORT_EXAMPLE_FILE)
 
 
 @pytest.fixture

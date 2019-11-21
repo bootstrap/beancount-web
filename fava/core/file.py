@@ -117,7 +117,7 @@ class FileModule(FavaModule):
     def render_entries(self, entries):
         """Return entries in Beancount format.
 
-        Only renders Balances and Transactions.
+        Only renders :class:`.Balance` and :class:`.Transaction`.
 
         Args:
             entries: A list of entries.
@@ -310,6 +310,7 @@ def _format_entry(entry, fava_options):
     }
     entry = entry._replace(meta=meta)
     string = align(format_entry(entry), fava_options)
+    string = string.replace("<class 'beancount.core.number.MISSING'>", "")
     return "\n".join((line.rstrip() for line in string.split("\n")))
 
 
@@ -321,11 +322,19 @@ def find_insert_position(accounts, date, insert_options, filenames):
         date: A date. Only InsertOptions before this date will be considered.
         insert_options: A list of InsertOption.
         filenames: List of Beancount files.
+
+    Returns:
+        A tuple of the filename and the line number.
     """
+    # Make no assumptions about the order of insert_options entries and instead
+    # sort them ourselves (by descending dates)
+    sorted_insert_options = sorted(
+        insert_options, key=lambda x: x.date, reverse=True
+    )
     for account in accounts:
-        for insert_option in insert_options:
+        for insert_option in sorted_insert_options:
             if insert_option.date >= date:
-                break
+                continue
             if insert_option.re.match(account):
                 return (insert_option.filename, insert_option.lineno - 1)
 

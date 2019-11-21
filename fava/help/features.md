@@ -56,10 +56,7 @@ number or a deep hierarchy of accounts, Fava offers the following options:
 -   `show-closed-accounts`
 -   `show-accounts-with-zero-balance`
 -   `show-accounts-with-zero-transactions`
--   `collapse-below-level`
-
-Additionally, accounts that have the metadata `fava-collapse-account` set to
-`TRUE` on their Open directive will be collapsed in the account trees.
+-   `collapse-pattern`
 
 ## Opening an external editor
 
@@ -90,8 +87,8 @@ example above, or absolute, even linking to an external site.
 Two frequently used custom links are for showing all Documents and all Notes
 found in the journal:
 
--   For all Documents: `/<slug>/journal/?show=documents`
--   For all Notes: `/<slug>/journal/?show=notes`
+-   For all Documents: `/<slug>/journal/?show=document`
+-   For all Notes: `/<slug>/journal/?show=note`
 
 There is a special URL handler `/jump` which can be used to jump to the current
 page with given URL parameters. For example, `/jump?time=month` will show the

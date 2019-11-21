@@ -28,39 +28,38 @@
     meta = meta;
   }
 </script>
-<div class="metadata">
-  {#each metakeys as metakey }
-  <div class="fieldset">
+
+{#each metakeys as metakey, i}
+  <div class="fieldset metadata">
     <button
       class="muted round remove-fieldset"
-      on:click="{() => removeMetadata(metakey)}"
+      on:click={() => removeMetadata(metakey)}
       type="button"
-      tabindex="-1"
-    >
+      tabindex="-1">
       ×
     </button>
     <input
       type="text"
       class="metadata-key"
-      placeholder="{_('Key')}"
-      value="{metakey}"
-      on:change="{ (event) => { updateMetakey(metakey, event.target.value) } }"
-      required
-    />
+      placeholder={_('Key')}
+      value={metakey}
+      on:change={event => {
+        updateMetakey(metakey, event.target.value);
+      }}
+      required />
     <input
       type="text"
       class="metadata-value"
-      placeholder="{_('Value')}"
-      bind:value="{meta[metakey]}"
-    />
-    <button
-      class="muted round add-row"
-      type="button"
-      on:click="{addMetadata}"
-      title="{_('Add metadata')}"
-    >
-      +
-    </button>
+      placeholder={_('Value')}
+      bind:value={meta[metakey]} />
+    {#if i === metakeys.length - 1}
+      <button
+        class="muted round add-row"
+        type="button"
+        on:click={addMetadata}
+        title={_('Add metadata')}>
+        +
+      </button>
+    {/if}
   </div>
-  {/each}
-</div>
+{/each}

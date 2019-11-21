@@ -18,6 +18,7 @@ from beancount.core.data import (
     Balance,
     TxnPosting,
     Transaction,
+    Document,
     Event,
     Custom,
 )
@@ -29,17 +30,17 @@ from fava.util import date, pairwise
 from fava.core.attributes import AttributesModule
 from fava.core.budgets import BudgetModule
 from fava.core.charts import ChartModule
+from fava.core.extensions import ExtensionModule
 from fava.core.fava_options import parse_options
 from fava.core.file import FileModule, get_entry_slice
 from fava.core.filters import AccountFilter, AdvancedFilter, TimeFilter
-from fava.core.helpers import FavaAPIException, FavaModule
+from fava.core.helpers import FavaAPIException
 from fava.core.ingest import IngestModule
 from fava.core.misc import FavaMisc
 from fava.core.number import DecimalFormatModule
 from fava.core.query_shell import QueryShell
 from fava.core.tree import Tree
 from fava.core.watcher import Watcher
-from fava.ext import find_extensions
 
 
 MAXDATE = datetime.date.max
@@ -70,33 +71,6 @@ class _AccountDict(dict):
         if key not in self:
             self[key] = AccountData()
         return self[key]
-
-
-# pylint: disable=missing-docstring
-class ExtensionModule(FavaModule):
-    """Some attributes of the ledger (mostly for auto-completion)."""
-
-    def __init__(self, ledger):
-        super().__init__(ledger)
-        self._extensions = None
-        self._instances = {}
-
-    def load_file(self):
-        self._extensions = []
-        for extension in self.ledger.fava_options["extensions"]:
-            extensions, errors = find_extensions(
-                os.path.dirname(self.ledger.beancount_file_path), extension
-            )
-            self._extensions.extend(extensions)
-            self.ledger.errors.extend(errors)
-
-        for cls in self._extensions:
-            if cls not in self._instances:
-                self._instances[cls] = cls(self.ledger)
-
-    def run_hook(self, event, *args):
-        for ext in self._instances.values():
-            ext.run_hook(event, *args)
 
 
 MODULES = [
@@ -285,20 +259,24 @@ class FavaLedger:
             return self._filters["time"].end_date
         return None
 
+    def join_path(self, *args):
+        """Path relative to the directory of the ledger."""
+        include_path = os.path.dirname(self.beancount_file_path)
+        return os.path.normpath(os.path.join(include_path, *args))
+
     def paths_to_watch(self):
         """The paths to included files and document directories.
 
         Returns:
             A tuple (files, directories).
         """
-        include_path = os.path.dirname(self.beancount_file_path)
         files = list(self.options["include"])
         if self.fava_options["import-config"]:
             files.append(self.ingest.module_path)
         return (
             files,
             [
-                os.path.normpath(os.path.join(include_path, path, account))
+                self.join_path(path, account)
                 for account in self.account_types
                 for path in self.options["documents"]
             ],
@@ -412,6 +390,11 @@ class FavaLedger:
                 balance,
             ) in realization.iterate_with_balance(postings)
         ]
+
+    @property
+    def documents(self):
+        """All currently filtered documents."""
+        return list(filter_type(self.entries, Document))
 
     def events(self, event_type=None):
         """List events (possibly filtered by type)."""
@@ -530,15 +513,11 @@ class FavaLedger:
         entry = self.get_entry(entry_hash)
         value = entry.meta[metadata_key]
 
-        beancount_dir = os.path.dirname(self.beancount_file_path)
         paths = [os.path.join(os.path.dirname(entry.meta["filename"]), value)]
         paths.extend(
             [
-                os.path.join(
-                    beancount_dir,
-                    document_root,
-                    *posting.account.split(":"),
-                    value
+                self.join_path(
+                    document_root, *posting.account.split(":"), value
                 )
                 for posting in entry.postings
                 for document_root in self.options["documents"]

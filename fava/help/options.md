@@ -20,7 +20,7 @@ If this setting is not specified, Fava will try to guess the language from your
 browser settings. Fava currently ships translations into the following
 languages:
 
--   Chinese (`zh`)
+-   Chinese (`zh_CN` and `zh_TW`)
 -   Dutch (`nl`)
 -   English (`en`)
 -   French (`fr`)
@@ -36,7 +36,7 @@ languages:
 
 ## `locale`
 
-Default: Not set
+Default: Not set or `en` if the Beancount `render_commas` option is set.
 
 This sets the locale that is used to render out numbers. For example, with the
 locale `en_IN` the number `1111111.33` will be rendered `11,11,111.33`,
@@ -77,19 +77,6 @@ Examples are:
 
 See [Fiscal Year on WikiPedia](https://en.wikipedia.org/wiki/Fiscal_year) for
 more examples.
-
----
-
-## `extensions`
-
-Default: Not set.
-
-A space-separated list of Python modules to load as extensions. The directory
-of the main Beancount file is searched too, so for example a `my_extension.py`
-right next to it could be used by giving `my_extension`. Note that Python has a
-global namespace for currently loaded modules, so try avoiding simple names
-that might coincide with some Python library (as well as running Fava on two
-files that have different extensions of the same name).
 
 ---
 
@@ -158,7 +145,7 @@ the following transaction flags:
 
 ---
 
-## `currency-colum`
+## `currency-column`
 
 Default: `61`
 
@@ -206,14 +193,17 @@ will always be shown.
 
 ---
 
-## `collapse-below-level`
+## `collapse-pattern`
 
 Default: Not set
 
-If set to a number all accounts at or below this depth in the account tree will
-be collapsed by default. Setting the option to `0` will thus collapse all
-accounts by default. The `fava-collapse-account` metadata on an account takes
-precedence over this option.
+This option is used to specify accounts that will be collapsed in the displayed account
+trees. The argument to this option is a regular expression matching account names. This
+option can be specified multiple times.
+
+Collapsing all accounts below a specific depth in the account tree can be accomplished
+by a regex such as: `.*:.*:.*` (this example collapses all accounts that are three
+levels deep).
 
 ---
 

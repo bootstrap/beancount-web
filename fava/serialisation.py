@@ -7,14 +7,14 @@ representation of the entry is provided.
 
 This is not intended to work well enough for full roundtrips yet.
 """
-
 import functools
 import re
-
-from beancount.core import data, position
-from beancount.core.amount import A, Amount
+from beancount.core import data
+from beancount.core import position
+from beancount.core.amount import Amount
 from beancount.core.data import EMPTY_SET
-from beancount.core.number import D, MISSING
+from beancount.core.number import D
+from beancount.parser.parser import parse_string
 
 from fava import util
 from fava.core.helpers import FavaAPIException
@@ -42,16 +42,6 @@ def extract_tags_links(string):
     return new_string, frozenset(tags), frozenset(links)
 
 
-def parse_number(num):
-    """Parse a number as entered in an entry form, supporting division."""
-    if not num:
-        return None
-    if "/" in num:
-        left, right = num.split("/")
-        return D(left) / D(right)
-    return D(num)
-
-
 @functools.singledispatch
 def serialise(entry):
     """Serialise an entry."""
@@ -60,6 +50,7 @@ def serialise(entry):
     ret = entry._asdict()
     ret["type"] = entry.__class__.__name__
     if ret["type"] == "Transaction":
+        ret["payee"] = entry.payee or ""
         if entry.tags:
             ret["narration"] += " " + " ".join(["#" + t for t in entry.tags])
         if entry.links:
@@ -67,6 +58,9 @@ def serialise(entry):
         del ret["links"]
         del ret["tags"]
         ret["postings"] = [serialise(pos) for pos in entry.postings]
+    elif ret["type"] == "Balance":
+        amt = ret["amount"]
+        ret["amount"] = {"number": str(amt.number), "currency": amt.currency}
     return ret
 
 
@@ -85,21 +79,14 @@ def _serialise_posting(posting):
 
 def deserialise_posting(posting):
     """Parse JSON to a Beancount Posting."""
-    amount = posting.get("amount")
-    price = None
-    if amount:
-        if "@" in amount:
-            amount, raw_price = amount.split("@")
-            price = A(raw_price)
-        pos = position.from_string(amount)
-        units = pos.units
-        if re.search(r"{\s*}", amount):
-            cost = data.CostSpec(MISSING, None, MISSING, None, None, False)
-        else:
-            cost = pos.cost
-    else:
-        units, cost = None, None
-    return data.Posting(posting["account"], units, cost, price, None, None)
+    amount = posting.get("amount", "")
+    entries, errors, _ = parse_string(
+        '2000-01-01 * "" ""\n Assets:Account {}'.format(amount)
+    )
+    if errors:
+        raise FavaAPIException("Invalid amount: {}".format(amount))
+    pos = entries[0].postings[0]
+    return pos._replace(account=posting["account"], meta=None)
 
 
 def deserialise(json_entry):
@@ -129,8 +116,7 @@ def deserialise(json_entry):
     if json_entry["type"] == "Balance":
         date = util.date.parse_date(json_entry["date"])[0]
         raw_amount = json_entry["amount"]
-        number = parse_number(raw_amount["number"])
-        amount = Amount(number, raw_amount["currency"])
+        amount = Amount(D(str(raw_amount["number"])), raw_amount["currency"])
 
         return data.Balance(
             json_entry["meta"], date, json_entry["account"], amount, None, None

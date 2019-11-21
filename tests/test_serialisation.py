@@ -1,35 +1,26 @@
 # pylint: disable=missing-docstring
-
 import datetime
 
-from beancount.core.data import (
-    Transaction,
-    create_simple_posting,
-    Balance,
-    Note,
-    Posting,
-)
-from beancount.core.amount import A
-from beancount.core.number import D, MISSING
-from beancount.core.position import Cost
-from beancount.core.data import CostSpec
-from flask.json import dumps, loads
 import pytest
+from beancount.core.amount import A
+from beancount.core.data import Balance
+from beancount.core.data import CostSpec
+from beancount.core.data import create_simple_posting
+from beancount.core.data import Note
+from beancount.core.data import Posting
+from beancount.core.data import Transaction
+from beancount.core.number import D
+from beancount.core.number import MISSING
+from flask.json import dumps
+from flask.json import loads
 
+from fava.core.fava_options import DEFAULTS
+from fava.core.file import _format_entry
 from fava.core.helpers import FavaAPIException
-from fava.serialisation import (
-    serialise,
-    deserialise,
-    extract_tags_links,
-    parse_number,
-    deserialise_posting,
-)
-
-
-def test_parse_number():
-    assert parse_number("5/2") == D("2.5")
-    assert parse_number("5") == D("5")
-    assert parse_number("12.345") == D("12.345")
+from fava.serialisation import deserialise
+from fava.serialisation import deserialise_posting
+from fava.serialisation import extract_tags_links
+from fava.serialisation import serialise
 
 
 def test_serialise(app):
@@ -62,45 +53,118 @@ def test_serialise(app):
 
     with app.test_request_context():
         serialised = loads(dumps(serialise(txn)))
-    assert serialised == json_txn
+        assert serialised == json_txn
+
+        txn = txn._replace(payee="")
+        json_txn["payee"] = ""
+        serialised = loads(dumps(serialise(txn)))
+        assert serialised == json_txn
+
+        txn = txn._replace(payee=None)
+        serialised = loads(dumps(serialise(txn)))
+        assert serialised == json_txn
 
 
 @pytest.mark.parametrize(
-    "pos,amount",
+    "amount_cost_price,amount_string",
     [
-        ((A("100 USD"), None, None, None, None), "100 USD"),
+        ((A("100 USD"), None, None), "100 USD"),
         (
-            (A("100 USD"), Cost(D("10"), "EUR", None, None), None, None, None),
+            (
+                A("100 USD"),
+                CostSpec(D("10"), None, "EUR", None, None, False),
+                None,
+            ),
             "100 USD {10 EUR}",
         ),
         (
             (
                 A("100 USD"),
-                Cost(D("10"), "EUR", None, None),
+                CostSpec(D("10"), None, "EUR", None, None, False),
                 A("11 EUR"),
-                None,
-                None,
             ),
             "100 USD {10 EUR} @ 11 EUR",
         ),
-        ((A("100 USD"), None, A("11 EUR"), None, None), "100 USD @ 11 EUR"),
+        ((A("100 USD"), None, A("11 EUR")), "100 USD @ 11 EUR"),
         (
             (
                 A("100 USD"),
                 CostSpec(MISSING, None, MISSING, None, None, False),
-                None,
-                None,
                 None,
             ),
             "100 USD {}",
         ),
     ],
 )
-def test_serialise_posting(pos, amount):
-    pos = Posting("Assets:ETrade:Cash", *pos)
-    json = {"account": "Assets:ETrade:Cash", "amount": amount}
+def test_serialise_posting(amount_cost_price, amount_string):
+    pos = Posting("Assets", *amount_cost_price, None, None)
+    json = {"account": "Assets", "amount": amount_string}
     assert loads(dumps(serialise(pos))) == json
     assert deserialise_posting(json) == pos
+
+
+@pytest.mark.parametrize(
+    "amount_cost_price,amount_string",
+    [
+        ((A("100 USD"), None, None), "10*10 USD"),
+        ((A("130 USD"), None, None), "100+50 - 20 USD"),
+        ((A("-140 USD"), None, None), "-1400 / 10 USD"),
+        ((A("10 USD"), None, A("1 EUR")), "10 USD @@ 10 EUR"),
+        (
+            (A("7 USD"), None, A("1.428571428571428571428571429 EUR")),
+            "7 USD @@ 10 EUR",
+        ),
+        ((A("0 USD"), None, A("0 EUR")), "0 USD @@ 0 EUR"),
+    ],
+)
+def test_deserialise_posting(amount_cost_price, amount_string):
+    """Roundtrip is not possible here due to total price or calculation."""
+    pos = Posting("Assets", *amount_cost_price, None, None)
+    json = {"account": "Assets", "amount": amount_string}
+    assert deserialise_posting(json) == pos
+
+
+def test_deserialise_posting_and_format(snapshot):
+    txn = Transaction(
+        {},
+        datetime.date(2017, 12, 12),
+        "*",
+        "Test3",
+        "asdfasd",
+        frozenset(["tag"]),
+        frozenset(["link"]),
+        [
+            deserialise_posting({"account": "Assets", "amount": "10"}),
+            deserialise_posting({"account": "Assets", "amount": "10 EUR @"}),
+        ],
+    )
+    snapshot(_format_entry(txn, DEFAULTS))
+
+
+def test_serialise_balance(app):
+    bal = Balance(
+        {},
+        datetime.date(2019, 9, 17),
+        "Assets:ETrade:Cash",
+        A("0.1234567891011121314151617 CHF"),
+        None,
+        None,
+    )
+
+    json = {
+        "date": "2019-09-17",
+        "amount": {"currency": "CHF", "number": "0.1234567891011121314151617"},
+        "diff_amount": None,
+        "meta": {},
+        "tolerance": None,
+        "account": "Assets:ETrade:Cash",
+        "type": "Balance",
+    }
+
+    with app.test_request_context():
+        serialised = loads(dumps(serialise(bal)))
+
+    assert serialised == json
 
 
 def test_deserialise():
@@ -129,7 +193,9 @@ def test_deserialise():
         [],
     )
     create_simple_posting(txn, "Assets:ETrade:Cash", "100", "USD")
-    create_simple_posting(txn, "Assets:ETrade:GLD", None, None)
+    txn.postings.append(
+        Posting("Assets:ETrade:GLD", MISSING, None, None, None, None)
+    )
     assert deserialise(json_txn) == txn
 
     with pytest.raises(KeyError):
