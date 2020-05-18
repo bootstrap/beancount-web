@@ -7,14 +7,15 @@
 /pip-wheel-metadata/
 /dist/
 /docs/api/
-/fava.egg-info
-/fava/static/node_modules
-/fava/translations/messages.pot
+/src/fava/static
+/src/fava/translations/messages.pot
+/src/fava.egg-info
 /htmlcov
 /venv
-gen
 
+node_modules
 *.pyc
+*.so
 .DS_Store
 .env
 TODO

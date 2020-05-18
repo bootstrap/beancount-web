@@ -1,8 +1,9 @@
 # pylint: disable=missing-docstring
 import datetime
+from typing import Tuple, Optional, FrozenSet
 
 import pytest
-from beancount.core.amount import A
+from beancount.core.amount import A, Amount
 from beancount.core.data import Balance
 from beancount.core.data import CostSpec
 from beancount.core.data import create_simple_posting
@@ -11,19 +12,18 @@ from beancount.core.data import Posting
 from beancount.core.data import Transaction
 from beancount.core.number import D
 from beancount.core.number import MISSING
-from flask.json import dumps
 from flask.json import loads
 
-from fava.core.fava_options import DEFAULTS
 from fava.core.file import _format_entry
-from fava.core.helpers import FavaAPIException
+from fava.core.charts import dumps
+from fava.helpers import FavaAPIException
 from fava.serialisation import deserialise
 from fava.serialisation import deserialise_posting
 from fava.serialisation import extract_tags_links
 from fava.serialisation import serialise
 
 
-def test_serialise(app):
+def test_serialise() -> None:
     assert serialise(None) is None
     txn = Transaction(
         {},
@@ -51,18 +51,17 @@ def test_serialise(app):
         ],
     }
 
-    with app.test_request_context():
-        serialised = loads(dumps(serialise(txn)))
-        assert serialised == json_txn
+    serialised = loads(dumps(serialise(txn)))
+    assert serialised == json_txn
 
-        txn = txn._replace(payee="")
-        json_txn["payee"] = ""
-        serialised = loads(dumps(serialise(txn)))
-        assert serialised == json_txn
+    txn = txn._replace(payee="")
+    json_txn["payee"] = ""
+    serialised = loads(dumps(serialise(txn)))
+    assert serialised == json_txn
 
-        txn = txn._replace(payee=None)
-        serialised = loads(dumps(serialise(txn)))
-        assert serialised == json_txn
+    txn = txn._replace(payee=None)
+    serialised = loads(dumps(serialise(txn)))
+    assert serialised == json_txn
 
 
 @pytest.mark.parametrize(
@@ -96,7 +95,10 @@ def test_serialise(app):
         ),
     ],
 )
-def test_serialise_posting(amount_cost_price, amount_string):
+def test_serialise_posting(
+    amount_cost_price: Tuple[Amount, Optional[CostSpec], Amount],
+    amount_string: str,
+) -> None:
     pos = Posting("Assets", *amount_cost_price, None, None)
     json = {"account": "Assets", "amount": amount_string}
     assert loads(dumps(serialise(pos))) == json
@@ -117,14 +119,17 @@ def test_serialise_posting(amount_cost_price, amount_string):
         ((A("0 USD"), None, A("0 EUR")), "0 USD @@ 0 EUR"),
     ],
 )
-def test_deserialise_posting(amount_cost_price, amount_string):
+def test_deserialise_posting(
+    amount_cost_price: Tuple[Amount, Optional[CostSpec], Amount],
+    amount_string: str,
+) -> None:
     """Roundtrip is not possible here due to total price or calculation."""
     pos = Posting("Assets", *amount_cost_price, None, None)
     json = {"account": "Assets", "amount": amount_string}
     assert deserialise_posting(json) == pos
 
 
-def test_deserialise_posting_and_format(snapshot):
+def test_deserialise_posting_and_format(snapshot) -> None:
     txn = Transaction(
         {},
         datetime.date(2017, 12, 12),
@@ -138,10 +143,10 @@ def test_deserialise_posting_and_format(snapshot):
             deserialise_posting({"account": "Assets", "amount": "10 EUR @"}),
         ],
     )
-    snapshot(_format_entry(txn, DEFAULTS))
+    snapshot(_format_entry(txn, 61))
 
 
-def test_serialise_balance(app):
+def test_serialise_balance() -> None:
     bal = Balance(
         {},
         datetime.date(2019, 9, 17),
@@ -161,13 +166,12 @@ def test_serialise_balance(app):
         "type": "Balance",
     }
 
-    with app.test_request_context():
-        serialised = loads(dumps(serialise(bal)))
+    serialised = loads(dumps(serialise(bal)))
 
     assert serialised == json
 
 
-def test_deserialise():
+def test_deserialise() -> None:
     postings = [
         {"account": "Assets:ETrade:Cash", "amount": "100 USD"},
         {"account": "Assets:ETrade:GLD"},
@@ -205,7 +209,7 @@ def test_deserialise():
         deserialise({"type": "NoEntry"})
 
 
-def test_deserialise_balance():
+def test_deserialise_balance() -> None:
     json_bal = {
         "type": "Balance",
         "date": "2017-12-12",
@@ -224,7 +228,7 @@ def test_deserialise_balance():
     assert deserialise(json_bal) == bal
 
 
-def test_deserialise_note():
+def test_deserialise_note() -> None:
     json_note = {
         "type": "Note",
         "date": "2017-12-12",
@@ -241,9 +245,13 @@ def test_deserialise_note():
     assert deserialise(json_note) == note
 
 
-def test_extract_tags_links():
+def test_extract_tags_links() -> None:
     assert extract_tags_links("notag") == ("notag", frozenset(), frozenset())
-    extracted1 = ("Some text", frozenset(["tag"]), frozenset())
+    extracted1: Tuple[str, FrozenSet[str], FrozenSet[str]] = (
+        "Some text",
+        frozenset(["tag"]),
+        frozenset(),
+    )
     assert extract_tags_links("Some text #tag") == extracted1
     assert extract_tags_links("Some text ^link") == (
         "Some text",

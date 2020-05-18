@@ -3,9 +3,7 @@
 
 exclude .editorconfig .gitignore .travis.yml appveyor.yml
 
-prune fava/static
-graft fava/static/gen
-graft fava/static/images
-exclude fava/translations/babel.conf
+graft src/fava/static
+exclude src/fava/translations/babel.conf
 
 global-exclude *.po *.py[co] *.orig __pycache__ .DS_Store

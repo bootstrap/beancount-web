@@ -3,7 +3,7 @@
 ;; Dates: 2014-01-01 - 2016-05-09
 * Options
 
-option "title" "Example Beancount file"
+option "title" "Long Example"
 option "operating_currency" "USD"
 
 2016-01-01 custom "fava-option" "show-accounts-with-zero-balance" "False"
@@ -5813,6 +5813,7 @@ option "operating_currency" "USD"
   Assets:Testing:MultipleCommodities                    1 ABC {50 USD}
   Assets:Testing:MultipleCommodities                  -50 USD
 
+2000-01-03 price XYZ                                  125 USD
 
 * Cash
 

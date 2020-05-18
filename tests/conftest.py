@@ -1,6 +1,8 @@
 # pylint: disable=missing-docstring
 
 import os
+from copy import deepcopy
+from typing import Counter, Any, Callable
 from pathlib import Path
 from pprint import pformat
 
@@ -12,41 +14,51 @@ from fava.application import _load_file, app as fava_app
 from fava.core.budgets import parse_budgets
 
 
-def create_app(bfile):
-    key = "BEANCOUNT_FILES"
-    if (key not in fava_app.config) or (fava_app.config[key] != [bfile]):
-        fava_app.config[key] = [bfile]
-        _load_file()
-
-
-def data_file(filename):
-    return os.path.join(os.path.dirname(__file__), "data", filename)
+def data_file(filename: str) -> str:
+    return str(Path(__file__).parent / "data" / filename)
 
 
 EXAMPLE_FILE = data_file("long-example.beancount")
 EXTENSION_REPORT_EXAMPLE_FILE = data_file("extension-report-example.beancount")
 
-API = FavaLedger(EXAMPLE_FILE)
+EXAMPLE_LEDGER = FavaLedger(EXAMPLE_FILE)
+EXAMPLE_LEDGER_OPTIONS = deepcopy(EXAMPLE_LEDGER.options)
+EXAMPLE_LEDGER_FAVA_OPTIONS = deepcopy(EXAMPLE_LEDGER.fava_options)
 
 fava_app.testing = True
 TEST_CLIENT = fava_app.test_client()
-create_app(EXAMPLE_FILE)
+
+fava_app.config["BEANCOUNT_FILES"] = [
+    EXAMPLE_FILE,
+    EXTENSION_REPORT_EXAMPLE_FILE,
+]
+_load_file()
 
 
 SNAPSHOT_UPDATE = bool(os.environ.get("SNAPSHOT_UPDATE"))
 MSG = "Maybe snapshots need to be updated with `SNAPSHOT_UPDATE=1 make test`?"
 
+# Keep track of multiple calls to snapshot in one test function to generate
+# unique (simply numbered) file names for the snashop files.
+SNAPS: Counter[Path] = Counter()
 
-@pytest.fixture
-def snapshot(request):
+
+@pytest.fixture()
+def snapshot(request) -> Callable[[Any], None]:
     file_path = Path(request.fspath)
     fn_name = request.function.__name__
     snap_dir = file_path.parent / "__snapshots__"
-    snap_file = snap_dir / (file_path.name + "-" + fn_name)
     if not snap_dir.exists():
         snap_dir.mkdir()
 
-    def _snapshot_data(data):
+    def _snapshot_data(data) -> None:
+        snap_file = snap_dir / f"{file_path.name}-{fn_name}"
+        SNAPS[snap_file] += 1
+        if SNAPS[snap_file] > 1:
+            snap_file = (
+                snap_dir / f"{file_path.name}-{fn_name}-{SNAPS[snap_file]}"
+            )
+
         out = pformat(data)
         if not snap_file.exists():
             contents = ""
@@ -61,14 +73,7 @@ def snapshot(request):
 
 
 @pytest.fixture
-def extension_report_app():
-    create_app(EXTENSION_REPORT_EXAMPLE_FILE)
-    return fava_app
-
-
-@pytest.fixture
 def app():
-    create_app(EXAMPLE_FILE)
     return fava_app
 
 
@@ -83,19 +88,16 @@ def load_doc(request):
 
 
 @pytest.fixture
-def extension_report_ledger():
-    return FavaLedger(EXTENSION_REPORT_EXAMPLE_FILE)
-
-
-@pytest.fixture
 def small_example_ledger():
     return FavaLedger(data_file("example.beancount"))
 
 
 @pytest.fixture
 def example_ledger():
-    yield API
-    API.filter(account=None, filter=None, time=None)
+    yield EXAMPLE_LEDGER
+    EXAMPLE_LEDGER.options = deepcopy(EXAMPLE_LEDGER_OPTIONS)
+    EXAMPLE_LEDGER.fava_options = deepcopy(EXAMPLE_LEDGER_FAVA_OPTIONS)
+    EXAMPLE_LEDGER.filter(account=None, filter=None, time=None)
 
 
 @pytest.fixture

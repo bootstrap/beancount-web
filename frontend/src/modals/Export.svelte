@@ -1,0 +1,19 @@
+<script>
+  import { _, urlFor } from "../helpers";
+  import { urlHash } from "../stores";
+
+  import ModalBase from "./ModalBase.svelte";
+
+  $: shown = $urlHash === "export";
+</script>
+
+<ModalBase {shown}>
+  {#if shown}
+    <div>
+      <h3>{_('Export')}:</h3>
+      <a href={urlFor('download-journal')} data-remote>
+        {_('Download currently filtered entries as a Beancount file')}
+      </a>
+    </div>
+  {/if}
+</ModalBase>

@@ -1,6 +1,4 @@
-# pylint: disable=missing-docstring
-
-from textwrap import dedent
+"""Tests for Fava's main Flask app."""
 
 import flask
 import pytest
@@ -11,11 +9,8 @@ from fava.application import REPORTS, static_url
 
 FILTER_COMBINATIONS = [
     {"account": "Assets"},
-    {"from": 'has_account("Assets")'},
-    {"time": "2015"},
-    {"payee": "BayBook"},
-    {"tag": "tag1, tag2"},
-    {"time": "2015", "payee": "BayBook"},
+    {"filter": "any(account: Assets)"},
+    {"time": "2015", "filter": "#tag1 payee:BayBook"},
 ]
 
 
@@ -28,10 +23,8 @@ FILTER_COMBINATIONS = [
     ],
 )
 def test_reports(app, test_client, report, filters):
-    if report.startswith("_"):
-        return
-
-    with app.test_request_context():
+    """The standard reports work without error (content isn't checked here)."""
+    with app.test_request_context("/long-example/"):
         app.preprocess_request()
         url = flask.url_for("report", report_name=report, **filters)
 
@@ -39,24 +32,21 @@ def test_reports(app, test_client, report, filters):
     assert result.status_code == 200
 
 
-@pytest.mark.parametrize(
-    "query_string,result_str",
-    [
-        ("balances from year = 2014", "5086.65 USD"),
-        ("nononono", "ERROR: Syntax error near"),
-        ("select sum(day)", "43558"),
-    ],
-)
-def test_query(app, test_client, query_string, result_str):
-    with app.test_request_context():
-        app.preprocess_request()
-        url = flask.url_for(
-            "report", report_name="query", query_string=query_string
-        )
+@pytest.mark.parametrize("filters", FILTER_COMBINATIONS)
+def test_account_page(app, test_client, filters):
+    """Account page works without error."""
+    for subreport in ["journal", "balances", "changes"]:
+        with app.test_request_context("/long-example/"):
+            app.preprocess_request()
+            url = flask.url_for(
+                "account",
+                name="Assets:US:BofA:Checking",
+                subreport=subreport,
+                **filters
+            )
 
-    result = test_client.get(url)
-    assert result.status_code == 200
-    assert result_str in result.get_data(True)
+        result = test_client.get(url)
+        assert result.status_code == 200
 
 
 @pytest.mark.parametrize(
@@ -64,6 +54,7 @@ def test_query(app, test_client, query_string, result_str):
     [("/", 302), ("/asdfasdf/", 404), ("/asdfasdf/asdfasdf/", 404)],
 )
 def test_urls(test_client, url, return_code):
+    """Some URLs return a 404."""
     result = test_client.get(url)
     assert result.status_code == return_code
 
@@ -94,86 +85,47 @@ def test_jump_handler(app, test_client, referer, jump_link, expect):
 
 
 def test_incognito(app, test_client):
-    with app.test_request_context():
+    """Numbers get obfuscated in incognito mode."""
+    app.config["INCOGNITO"] = True
+    with app.test_request_context("/long-example/"):
         app.preprocess_request()
-        app.config["INCOGNITO"] = True
         url = flask.url_for("report", report_name="balance_sheet")
 
     result = test_client.get(url)
     assert result.status_code == 200
     assert "XXX" in result.get_data(True)
 
-    with app.test_request_context():
-        app.preprocess_request()
-        app.config["INCOGNITO"] = False
+    app.config["INCOGNITO"] = False
 
 
-def test_download_journal(app, test_client):
-    file_content = dedent(
-        """\
-        ;; -*- mode: org; mode: beancount; -*-
-
-        option "title" "Example Beancount file - Journal Export"
-
-        option "operating_currency" "USD"
-        option "name_assets" "Assets"
-        option "name_liabilities" "Liabilities"
-        option "name_equity" "Equity"
-        option "name_income" "Income"
-        option "name_expenses" "Expenses"
-        plugin "beancount.plugins.auto_accounts"
-
-        2016-05-07 * "Jewel of Morroco" "Eating out alone"
-          Liabilities:US:Chase:Slate                       -25.30 USD
-          Expenses:Food:Restaurant                          25.30 USD
-
-    """
-    )
-
-    with app.test_request_context():
+def test_download_journal(app, test_client, snapshot) -> None:
+    """The currently filtered journal can be downloaded."""
+    with app.test_request_context("/long-example/"):
         app.preprocess_request()
         url = flask.url_for("download_journal", time="2016-05-07")
     result = test_client.get(url)
-    assert result.get_data(True) == file_content
+    snapshot(result.get_data(True))
     assert result.headers["Content-Disposition"].startswith(
         'attachment; filename="journal_'
     )
     assert result.headers["Content-Type"] == "application/octet-stream"
 
 
-@pytest.mark.parametrize(
-    "filename,has_modified",
-    [
-        ("not-a-real-file", False),
-        ("javascript/main.ts", True),
-        ("css/style.css", True),
-    ],
-)
-def test_static_url(app, filename, has_modified):
+def test_static_url(app) -> None:
+    """Static URLs have the mtime appended."""
+    filename = "app.js"
     with app.test_request_context():
         app.preprocess_request()
-        url = static_url(filename=filename)
+        url = static_url(filename)
     assert url.startswith("/static/" + filename)
-    assert ("?mtime=" in url) == has_modified
+    assert "?mtime=" in url
 
 
-def test_static_url_no_filename(app):
-    with app.test_request_context():
+def test_load_extension_reports(app, test_client):
+    """Extension can register reports."""
+    with app.test_request_context("/extension-report-beancount-file/"):
         app.preprocess_request()
-        try:
-            static_url()
-            assert False, "static_url without a filename should throw an error"
-        except werkzeug.routing.BuildError:
-            pass
-
-
-def test_load_extension_reports(extension_report_app, test_client):
-    with extension_report_app.test_request_context():
-        extension_report_app.preprocess_request()
-        slug = "extension-report-beancount-file"
-
-        ledger = extension_report_app.config["LEDGERS"][slug]
-        assert ledger.extensions.reports == [
+        assert flask.g.ledger.extensions.reports == [
             ("PortfolioList", "Portfolio List")
         ]
 

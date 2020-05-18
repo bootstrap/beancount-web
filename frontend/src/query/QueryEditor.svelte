@@ -1,0 +1,65 @@
+<script>
+  import CodeMirror from "codemirror";
+  import { createEventDispatcher } from "svelte";
+
+  import { enableAutomaticCompletions } from "../editor";
+  import { _ } from "../helpers";
+
+  export let value;
+  let editor;
+  const dispatch = createEventDispatcher();
+
+  $: if (editor && value !== editor.getValue()) {
+    editor.setValue(value);
+  }
+
+  function queryEditor(form) {
+    const queryOptions = {
+      value,
+      mode: "beancount-query",
+      extraKeys: {
+        "Ctrl-Enter": () => dispatch("submit"),
+        "Cmd-Enter": () => dispatch("submit"),
+      },
+      placeholder: _(
+        "...enter a BQL query. 'help' to list available commands."
+      ),
+    };
+    editor = CodeMirror((cm) => {
+      form.insertBefore(cm, form.firstChild);
+    }, queryOptions);
+
+    editor.on("change", (cm) => {
+      value = cm.getValue();
+    });
+
+    enableAutomaticCompletions(editor);
+  }
+</script>
+
+<style>
+  form {
+    display: flex;
+    align-items: center;
+    padding-bottom: 1em;
+  }
+
+  button {
+    margin: 0;
+  }
+
+  form :global(.CodeMirror) {
+    flex-grow: 1;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    margin-right: 0.5em;
+    font-family: var(--font-family-editor);
+    font-size: 16px;
+    border: 1px solid var(--color-background-darker);
+  }
+</style>
+
+<form use:queryEditor on:submit|preventDefault={() => dispatch('submit')}>
+  <button type="submit" data-key="Ctrl/Cmd+Enter">{_('Submit')}</button>
+</form>

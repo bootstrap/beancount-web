@@ -1,24 +1,19 @@
 # pylint: disable=missing-docstring
-
-import os.path
-
-from flask import g
 from beancount.core import realization
+from flask import g
 
-from fava.core import AccountData
+from fava.core.accounts import AccountData
 from fava.core.inventory import CounterInventory
 from fava.core.tree import TreeNode
-from fava.template_filters import (
-    basename,
-    get_or_create,
-    should_show,
-    format_errormsg,
-    collapse_account,
-)
+from fava.template_filters import basename
+from fava.template_filters import collapse_account
+from fava.template_filters import format_errormsg
+from fava.template_filters import get_or_create
+from fava.template_filters import should_show
 
 
 def test_basename():
-    assert basename(__file__) == os.path.basename(__file__)
+    assert basename(__file__) == "test_template_filters.py"
 
 
 def test_get_or_create(example_ledger):
@@ -32,7 +27,7 @@ def test_get_or_create(example_ledger):
 
 
 def test_should_show(app):
-    with app.test_request_context("/"):
+    with app.test_request_context("/long-example/"):
         app.preprocess_request()
         assert should_show(g.ledger.root_tree.get("")) is True
         assert should_show(g.ledger.root_tree.get("Expenses")) is True
@@ -41,7 +36,7 @@ def test_should_show(app):
         assert should_show(account) is False
         account.balance_children = CounterInventory({("USD", None): 9})
         assert should_show(account) is True
-    with app.test_request_context("/?time=2100"):
+    with app.test_request_context("/long-example/income_statement/?time=2100"):
         app.preprocess_request()
         assert not g.ledger.fava_options["show-accounts-with-zero-balance"]
         assert should_show(g.ledger.root_tree.get("")) is True
@@ -49,23 +44,23 @@ def test_should_show(app):
 
 
 def test_format_errormsg(app):
-    with app.test_request_context("/"):
+    with app.test_request_context("/long-example/"):
         app.preprocess_request()
         assert (
             format_errormsg("Test for 'Expenses:Acme:Cash': Test")
-            == 'Test for <a href="/example-beancount-file/account/Expenses:'
+            == 'Test for <a href="/long-example/account/Expenses:'
             'Acme:Cash/">Expenses:Acme:Cash</a>: Test'
         )
         assert (
             format_errormsg("Test Expenses:Acme:Cash Test")
-            == 'Test <a href="/example-beancount-file/account/Expenses:'
+            == 'Test <a href="/long-example/account/Expenses:'
             'Acme:Cash/">Expenses:Acme:Cash</a> Test'
         )
         assert format_errormsg("Test: Test") == "Test: Test"
 
 
 def test_collapse_account(app):
-    with app.test_request_context("/"):
+    with app.test_request_context("/long-example/"):
         app.preprocess_request()
         g.ledger.fava_options["collapse-pattern"] = [
             "^Assets:Stock$",

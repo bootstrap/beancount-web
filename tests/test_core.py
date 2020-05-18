@@ -1,9 +1,10 @@
 # pylint: disable=missing-docstring
+from pathlib import Path
 
-import os
 import pytest
 
 from fava.core import FavaAPIException
+from fava.core import FavaLedger
 
 
 def test_apiexception():
@@ -14,25 +15,22 @@ def test_apiexception():
     assert str(exception) == exception.message
 
 
-def test_attributes(example_ledger):
+def test_attributes(example_ledger: FavaLedger) -> None:
     assert len(example_ledger.attributes.accounts) == 61
     assert "Assets" not in example_ledger.attributes.accounts
 
 
-def test_paths_to_watch(example_ledger):
+def test_paths_to_watch(example_ledger: FavaLedger) -> None:
     assert example_ledger.paths_to_watch() == (
         [example_ledger.beancount_file_path],
         [],
     )
-    documents = example_ledger.options["documents"]
     example_ledger.options["documents"] = ["folder"]
-    base = os.path.join(
-        os.path.dirname(example_ledger.beancount_file_path), "folder"
-    )
+    base = Path(example_ledger.beancount_file_path).parent / "folder"
     assert example_ledger.paths_to_watch() == (
         [example_ledger.beancount_file_path],
         [
-            os.path.join(base, account)
+            str(base / account)
             for account in [
                 "Assets",
                 "Liabilities",
@@ -42,10 +40,9 @@ def test_paths_to_watch(example_ledger):
             ]
         ],
     )
-    example_ledger.options["documents"] = documents
 
 
-def test_account_metadata(example_ledger):
+def test_account_metadata(example_ledger: FavaLedger) -> None:
     data = example_ledger.accounts["Assets:US:BofA"].meta
     assert data["address"] == "123 America Street, LargeTown, USA"
     assert data["institution"] == "Bank of America"
@@ -54,14 +51,8 @@ def test_account_metadata(example_ledger):
     assert not example_ledger.accounts["NOACCOUNT"].meta
 
 
-def test_account_uptodate_status(example_ledger):
-    status = example_ledger.account_uptodate_status("Assets:US:BofA")
-    assert not status
-
-    status = example_ledger.account_uptodate_status("Assets:US:BofA:Checking")
-    assert status == "yellow"
-
-    status = example_ledger.account_uptodate_status(
-        "Liabilities:US:Chase:Slate"
-    )
-    assert status == "green"
+def test_account_uptodate_status(example_ledger: FavaLedger) -> None:
+    func = example_ledger.account_uptodate_status
+    assert func("Assets:US:BofA") is None
+    assert func("Assets:US:BofA:Checking") == "yellow"
+    assert func("Liabilities:US:Chase:Slate") == "green"
