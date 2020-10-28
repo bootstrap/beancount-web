@@ -1,21 +1,36 @@
 <script>
   import { moveDocument } from "../api";
-  import { favaAPI } from "../stores";
-  import { _ } from "../helpers";
+  import { baseURL } from "../stores/url";
+  import { _ } from "../i18n";
   import router from "../router";
 
   import { basename } from "../lib/paths";
-  import { entriesToTree } from "./util";
+  import { stratify } from "../lib/tree";
 
   import AccountInput from "../entry-forms/AccountInput.svelte";
   import ModalBase from "../modals/ModalBase.svelte";
   import Accounts from "./Accounts.svelte";
   import Table from "./Table.svelte";
 
+  /** @typedef {{account: string, filename: string, date: string}} Document */
+
+  /** @type {Document[]} */
   export let data;
+
+  $: node = stratify(
+    new Set(data.map((e) => e.account)),
+    (s) => s,
+    (name) => ({ name })
+  );
+
+  /** @type {Document} */
   let selected;
+  /** @type {{account: string, filename: string, newName: string} | null} */
   let moving = null;
 
+  /**
+   * @param {Document} doc
+   */
   function copyMoveable(doc) {
     return {
       account: doc.account,
@@ -26,6 +41,7 @@
 
   /**
    * Rename the selected document with <F2>.
+   * @param {KeyboardEvent} ev
    */
   function keyup(ev) {
     if (ev.key === "F2" && selected) {
@@ -35,17 +51,16 @@
 
   /**
    * Move a document to the account it is dropped on.
+   * @param {CustomEvent} ev
    */
   function drop(ev) {
     moving = copyMoveable(ev.detail);
   }
 
   async function move() {
-    const moved = await moveDocument(
-      moving.filename,
-      moving.account,
-      moving.newName
-    );
+    const moved =
+      moving &&
+      (await moveDocument(moving.filename, moving.account, moving.newName));
     if (moved) {
       moving = null;
       router.reload();
@@ -80,12 +95,10 @@
     }}>
     <div>
       <h3>{_('Move or rename document')}</h3>
-      <p>
-        <code>{moving.filename}</code>
-      </p>
+      <p><code>{moving.filename}</code></p>
       <p>
         <AccountInput bind:value={moving.account} />
-        <input size="40" bind:value={moving.newName} />
+        <input size={40} bind:value={moving.newName} />
         <button type="button" on:click={move}>{'Move'}</button>
       </p>
     </div>
@@ -93,7 +106,7 @@
 {/if}
 <div class="container">
   <div class="half-column" style="width: 14rem;">
-    <Accounts node={entriesToTree(data)} on:drop={drop} />
+    <Accounts {node} on:drop={drop} />
   </div>
   <div class="half-column">
     <Table bind:selected {data} />
@@ -102,7 +115,7 @@
     {#if selected}
       <object
         title={selected.filename}
-        data={`${favaAPI.baseURL}document/?filename=${selected.filename}`}
+        data={`${$baseURL}document/?filename=${selected.filename}`}
         style="width:100%;height:100%" />
     {/if}
   </div>

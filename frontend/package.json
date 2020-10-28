@@ -4,12 +4,13 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -cw",
-    "lint": "npm run format && npm run lint:js && npm run lint:css && npx tsc",
+    "lint": "npm run format && npm run lint:js-fix && npm run lint:css && npx tsc",
     "lint:css": "stylelint 'css/*.css' 'src/**/*.svelte' --fix",
-    "check-lint": "npm run check-format && eslint src --ext .js,.svelte,.ts && stylelint 'css/*.css' 'src/**/*.svelte'  && npx tsc",
-    "lint:js": "eslint src test --fix --ext .js,.svelte,.ts",
+    "check-lint": "npm run check-format && npm run lint:js && stylelint 'css/*.css' 'src/**/*.svelte' && npx tsc",
+    "lint:js": "eslint src test",
+    "lint:js-fix": "npm run lint:js -- --fix",
     "check-format": "cd ../ && prettier '**/*.{css,md,js,json,svelte,ts}' --check --ignore-path .gitignore",
-    "format": "cd ../ && prettier '**/*.{css,md,js,json,svelte,ts}' --check --write --ignore-path .gitignore",
+    "format": "npm run check-format -- --write",
     "test": "ava",
     "test:watch": "ava -w"
   },
@@ -35,62 +36,6 @@
       "sucrase/register"
     ]
   },
-  "eslintConfig": {
-    "extends": [
-      "airbnb-base",
-      "plugin:@typescript-eslint/recommended",
-      "prettier"
-    ],
-    "plugins": [
-      "@typescript-eslint",
-      "svelte3"
-    ],
-    "env": {
-      "browser": true
-    },
-    "rules": {
-      "camelcase": 0,
-      "curly": [
-        "error",
-        "all"
-      ],
-      "max-classes-per-file": 0,
-      "no-param-reassign": 0,
-      "no-restricted-syntax": [
-        "error",
-        "ForInStatement",
-        "LabelStatement",
-        "WithStatement"
-      ],
-      "no-underscore-dangle": 0,
-      "no-unused-expressions": 0,
-      "import/extensions": 0,
-      "import/no-unresolved": 0,
-      "import/prefer-default-export": 0,
-      "@typescript-eslint/camelcase": 0
-    },
-    "overrides": [
-      {
-        "files": "*.js",
-        "rules": {
-          "@typescript-eslint/explicit-function-return-type": 0
-        }
-      },
-      {
-        "files": "*.svelte",
-        "processor": "svelte3/svelte3",
-        "rules": {
-          "import/first": 0,
-          "import/no-mutable-exports": 0,
-          "@typescript-eslint/explicit-function-return-type": 0
-        }
-      },
-      {
-        "files": "*.ts",
-        "parser": "@typescript-eslint/parser"
-      }
-    ]
-  },
   "stylelint": {
     "extends": [
       "stylelint-config-standard",
@@ -109,57 +54,58 @@
     }
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^11.1.0",
-    "@rollup/plugin-node-resolve": "^7.1.3",
-    "@rollup/plugin-sucrase": "^3.0.1",
-    "@rollup/plugin-typescript": "^4.1.1",
-    "@types/codemirror": "0.0.93",
-    "@types/d3-array": "^2.0.0",
-    "@types/d3-axis": "^1.0.12",
-    "@types/d3-color": "^1.2.2",
-    "@types/d3-format": "^1.3.1",
-    "@types/d3-hierarchy": "^1.1.6",
-    "@types/d3-quadtree": "^1.0.7",
-    "@types/d3-scale": "^2.2.0",
-    "@types/d3-shape": "^1.3.2",
-    "@types/d3-time-format": "^2.1.1",
-    "@typescript-eslint/eslint-plugin": "^2.33.0",
-    "@typescript-eslint/parser": "^2.33.0",
-    "ava": "^3.8.2",
-    "eslint": "^6.8.0",
-    "eslint-config-airbnb-base": "^14.1.0",
-    "eslint-config-prettier": "^6.11.0",
-    "eslint-plugin-import": "^2.20.2",
+    "@rollup/plugin-commonjs": "^15.1.0",
+    "@rollup/plugin-node-resolve": "^9.0.0",
+    "@rollup/plugin-sucrase": "^3.1.0",
+    "@rollup/plugin-typescript": "^6.0.0",
+    "@types/codemirror": "0.0.98",
+    "@types/d3-array": "^2.3.0",
+    "@types/d3-axis": "^2.0.0",
+    "@types/d3-color": "^2.0.0",
+    "@types/d3-format": "^2.0.0",
+    "@types/d3-hierarchy": "^2.0.0",
+    "@types/d3-quadtree": "^2.0.0",
+    "@types/d3-scale": "^3.2.0",
+    "@types/d3-selection": "^2.0.0",
+    "@types/d3-shape": "^2.0.0",
+    "@types/d3-time-format": "^3.0.0",
+    "@typescript-eslint/eslint-plugin": "^4.6.0",
+    "@typescript-eslint/parser": "^4.6.0",
+    "ava": "^3.13.0",
+    "eslint": "^7.12.0",
+    "eslint-config-airbnb-typescript": "^12.0.0",
+    "eslint-config-prettier": "^6.14.0",
+    "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-svelte3": "^2.7.3",
-    "husky": "^4.2.5",
-    "lint-staged": "^10.2.2",
-    "prettier": "^2.0.5",
-    "prettier-plugin-svelte": "^1.1.0",
-    "rollup": "^2.10.0",
-    "rollup-plugin-svelte": "^5.2.1",
-    "stylelint": "^13.3.3",
-    "stylelint-config-prettier": "^8.0.1",
-    "stylelint-config-recess-order": "^2.0.4",
+    "husky": "^4.3.0",
+    "lint-staged": "^10.5.0",
+    "prettier": "^2.1.2",
+    "prettier-plugin-svelte": "^1.4.1",
+    "rollup": "^2.32.1",
+    "rollup-plugin-svelte": "^6.1.0",
+    "stylelint": "^13.7.2",
+    "stylelint-config-prettier": "^8.0.2",
+    "stylelint-config-recess-order": "^2.3.0",
     "stylelint-config-standard": "^20.0.0",
-    "sucrase": "^3.14.0",
-    "typescript": "^3.9.2"
+    "sucrase": "^3.16.0",
+    "typescript": "^4.0.3"
   },
   "dependencies": {
-    "@openfonts/fira-mono_all": "^1.44.1",
+    "@openfonts/fira-mono_all": "^1.44.2",
     "@openfonts/fira-sans_all": "^1.44.1",
-    "@openfonts/source-code-pro_all": "^1.44.1",
+    "@openfonts/source-code-pro_all": "^1.44.2",
     "@openfonts/source-serif-pro_latin": "^1.44.1",
-    "codemirror": "^5.53.2",
-    "d3-array": "^2.4.0",
-    "d3-axis": "^1.0.12",
-    "d3-color": "^1.4.1",
-    "d3-format": "^1.4.4",
-    "d3-hierarchy": "^1.1.9",
-    "d3-quadtree": "^1.0.7",
-    "d3-scale": "^3.2.1",
-    "d3-selection": "^1.4.1",
-    "d3-shape": "^1.3.7",
-    "d3-time-format": "^2.2.3",
-    "svelte": "^3.22.2"
+    "codemirror": "^5.58.2",
+    "d3-array": "^2.7.1",
+    "d3-axis": "^2.0.0",
+    "d3-color": "^2.0.0",
+    "d3-format": "^2.0.0",
+    "d3-hierarchy": "^2.0.0",
+    "d3-quadtree": "^2.0.0",
+    "d3-scale": "^3.2.3",
+    "d3-selection": "^2.0.0",
+    "d3-shape": "^2.0.0",
+    "d3-time-format": "^3.0.0",
+    "svelte": "^3.29.4"
   }
 }

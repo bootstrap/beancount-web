@@ -1,34 +1,40 @@
 <script>
-  import { onDestroy, onMount } from "svelte";
+  import { onMount } from "svelte";
 
-  import { keys } from "../keyboard-shortcuts";
+  import { bindKey } from "../keyboard-shortcuts";
   import { parseChartData } from ".";
   import { activeChart, showCharts } from "../stores/chart";
 
   import ConversionAndInterval from "./ConversionAndInterval.svelte";
   import Chart from "./Chart.svelte";
 
+  /** @type {import(".").NamedChartTypes[]} */
   let charts = [];
 
   onMount(() => {
     charts = parseChartData();
     if (!charts.length) {
-      return;
+      $activeChart = undefined;
     }
     $activeChart =
-      charts.find((c) => c.name === $activeChart.name) || charts[0];
-    keys.bind("c", () => {
-      const currentIndex = charts.findIndex((e) => e === $activeChart);
-      $activeChart = charts[(currentIndex + 1 + charts.length) % charts.length];
-    });
-    keys.bind("C", () => {
-      const currentIndex = charts.findIndex((e) => e === $activeChart);
-      $activeChart = charts[(currentIndex - 1 + charts.length) % charts.length];
-    });
-  });
-  onDestroy(() => {
-    keys.unbind("c");
-    keys.unbind("C");
+      charts.find((c) => c.name === ($activeChart || {}).name) || charts[0];
+
+    const unbind = [
+      bindKey("c", () => {
+        const currentIndex = charts.findIndex((e) => e === $activeChart);
+        $activeChart =
+          charts[(currentIndex + 1 + charts.length) % charts.length];
+      }),
+      bindKey("C", () => {
+        const currentIndex = charts.findIndex((e) => e === $activeChart);
+        $activeChart =
+          charts[(currentIndex - 1 + charts.length) % charts.length];
+      }),
+    ];
+
+    return () => {
+      unbind.forEach((u) => u());
+    };
   });
 </script>
 
@@ -40,33 +46,33 @@
     text-align: center;
   }
 
-  label {
+  span {
     padding: 0 0.5em;
   }
 
-  label + label {
+  span + span {
     border-left: 1px solid var(--color-text-lighter);
   }
 
-  label.selected,
-  label:hover {
+  span.selected,
+  span:hover {
     color: var(--color-text-lighter);
   }
 </style>
 
-{#if charts.length}
+{#if $activeChart}
   <Chart chart={$activeChart}>
     <ConversionAndInterval />
   </Chart>
   <div hidden={!$showCharts}>
     {#each charts as chart}
-      <label
+      <span
         class:selected={chart === $activeChart}
         on:click={() => {
           $activeChart = chart;
         }}>
         {chart.name}
-      </label>
+      </span>
     {/each}
   </div>
 {/if}

@@ -9,9 +9,13 @@
   import { formatCurrencyShort } from "../format";
   import { followingTooltip } from "./tooltip";
 
+  /** @type {import('.').BarChartDatum[]} */
   export let data;
+  /** @type {number} */
   export let width;
+  /** @type {(d: import('.').BarChartDatum) => string} */
   export let tooltipText;
+
   const maxColumnWidth = 100;
   const margin = {
     top: 10,
@@ -33,11 +37,14 @@
   $: x1 = scaleBand()
     .domain(data[0].values.map((d) => d.name))
     .range([0, x0.bandwidth()]);
+  let yMin = 0;
+  let yMax = 0;
   $: [yMin, yMax] = extent(merge(data.map((d) => d.values)), (d) => d.value);
   $: y = scaleLinear()
     .range([innerHeight, 0])
     .domain([Math.min(0, yMin), Math.max(0, yMax)]);
 
+  /** @type {import("svelte/store").Writable<[string,string][]>} */
   const legend = getContext("chart-legend");
   $: legend.set(
     x1
@@ -46,6 +53,10 @@
       .map((c) => [c, $currenciesScale(c)])
   );
 
+  /**
+   * Filter the ticks to have them not overlap
+   * @param {string[]} domain
+   */
   function filterTicks(domain) {
     const labelsCount = innerWidth / 70;
     if (domain.length <= labelsCount) {
@@ -62,51 +73,65 @@
   $: yAxis = axisLeft(y).tickSize(-innerWidth).tickFormat(formatCurrencyShort);
 </script>
 
-<svg class="barchart" {width} {height}>
+<style>
+  .axis-group-box {
+    cursor: pointer;
+    opacity: 0;
+  }
+
+  .group-box {
+    opacity: 0;
+  }
+
+  .group:hover .group-box {
+    opacity: 0.1;
+  }
+
+  .budget {
+    opacity: 0.3;
+  }
+</style>
+
+<svg {width} {height}>
   <g transform={`translate(${offset},${margin.top})`}>
     <g
       class="x axis"
       use:axis={xAxis}
       transform={`translate(0,${innerHeight})`} />
     <g class="y axis" use:axis={yAxis} />
-    <g>
-      {#each data as group}
-        <g
-          class="group"
-          use:followingTooltip={() => tooltipText(group)}
-          transform={`translate(${x0(group.label)},0)`}>
+    {#each data as group}
+      <g
+        class="group"
+        use:followingTooltip={() => tooltipText(group)}
+        transform={`translate(${x0(group.label)},0)`}>
+        <rect
+          class="group-box"
+          x={(x0.bandwidth() - x0.step()) / 2}
+          width={x0.step()}
+          height={innerHeight} />
+        <rect
+          class="axis-group-box"
+          on:click={() => {
+            setTimeFilter(group.date);
+          }}
+          transform={`translate(0,${innerHeight})`}
+          width={x0.bandwidth()}
+          height={margin.bottom} />
+        {#each group.values as bar}
           <rect
-            class="group-box"
-            x={(x0.bandwidth() - x0.step()) / 2}
-            width={x0.step()}
-            height={innerHeight} />
+            fill={$currenciesScale(bar.name)}
+            width={x1.bandwidth()}
+            x={x1(bar.name)}
+            y={y(Math.max(0, bar.value))}
+            height={Math.abs(y(bar.value) - y(0))} />
           <rect
-            class="axis-group-box"
-            on:click={() => {
-              setTimeFilter(group.date);
-            }}
-            transform={`translate(0,${innerHeight})`}
-            width={x0.bandwidth()}
-            height={margin.bottom} />
-          {#each group.values as bar}
-            <rect
-              class="bar"
-              fill={$currenciesScale(bar.name)}
-              width={x1.bandwidth()}
-              x={x1(bar.name)}
-              y={y(Math.max(0, bar.value))}
-              height={Math.abs(y(bar.value) - y(0))} />
-          {/each}
-          {#each group.values as bar}
-            <rect
-              class="budget"
-              width={x1.bandwidth()}
-              x={x1(bar.name)}
-              y={y(Math.max(0, bar.budget))}
-              height={Math.abs(y(bar.budget) - y(0))} />
-          {/each}
-        </g>
-      {/each}
-    </g>
+            class="budget"
+            width={x1.bandwidth()}
+            x={x1(bar.name)}
+            y={y(Math.max(0, bar.budget))}
+            height={Math.abs(y(bar.budget) - y(0))} />
+        {/each}
+      </g>
+    {/each}
   </g>
 </svg>

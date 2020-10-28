@@ -13,7 +13,7 @@ from fava.core.misc import align
 
 
 def assert_api_error(response, msg: Optional[str] = None) -> None:
-    """Asserts that the reponse errored and contains the message."""
+    """Asserts that the response errored and contains the message."""
     assert response.status_code == 200
     assert not response.json["success"]
     if msg:
@@ -64,6 +64,24 @@ def test_api_add_document(app, test_client, tmp_path) -> None:
         response = test_client.put(url, data=request_data)
         assert_api_error(response, f"{filename} already exists.")
         flask.g.ledger.options["documents"] = old_documents
+
+
+def test_api_errors(app, test_client) -> None:
+    with app.test_request_context("/long-example/"):
+        app.preprocess_request()
+        url = flask.url_for("json_api.errors")
+
+    response = test_client.get(url)
+    assert_api_success(response, 0)
+
+
+def test_api_payee_accounts(app, test_client) -> None:
+    with app.test_request_context("/long-example/"):
+        app.preprocess_request()
+        url = flask.url_for("json_api.payee_accounts", payee="test")
+
+    response = test_client.get(url)
+    assert_api_success(response, [])
 
 
 def test_api_move(app, test_client) -> None:
@@ -127,7 +145,9 @@ def test_api_format_source(app, test_client) -> None:
     payload = open(path, encoding="utf-8").read()
 
     response = test_client.put(
-        url, data=dumps({"source": payload}), content_type="application/json",
+        url,
+        data=dumps({"source": payload}),
+        content_type="application/json",
     )
     assert_api_success(response, align(payload, 61))
 

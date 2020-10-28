@@ -6,10 +6,10 @@ from beancount.core import account
 
 from fava.core.filters import AccountFilter
 from fava.core.filters import AdvancedFilter
+from fava.core.filters import FilterException
 from fava.core.filters import FilterSyntaxLexer
 from fava.core.filters import Match
 from fava.core.filters import TimeFilter
-from fava.core.filters import FilterException
 
 LEX = FilterSyntaxLexer().lex
 
@@ -120,6 +120,7 @@ def test_filterexception():
         ('name:".*ETF$"', 3),
         ('name:".*etf"', 4),
         ('name:".*etf$"', 3),
+        ('any(overage:"GB$")', 1),
     ],
 )
 def test_advanced_filter(example_ledger, string, number):

@@ -20,6 +20,7 @@ If this setting is not specified, Fava will try to guess the language from your
 browser settings. Fava currently ships translations into the following
 languages:
 
+-   Catalan (`ca`)
 -   Chinese (`zh_CN` and `zh_TW`)
 -   Dutch (`nl`)
 -   English (`en`)
@@ -67,7 +68,8 @@ Default: `12-31`
 
 The last day of the fiscal (financial or tax) period for accounting purposes in
 `%m-%d` format. Allows for the use of `FY2018`, `FY2018-Q3`, `fiscal_year` and
-`fiscal_quarter` in the time filter.
+`fiscal_quarter` in the time filter, and `FY2018` as the start date, end date,
+or both dates in a date range in the time filter.
 
 Examples are:
 
@@ -79,6 +81,12 @@ See [Fiscal Year on WikiPedia](https://en.wikipedia.org/wiki/Fiscal_year) for
 more examples.
 
 ---
+
+## `indent`
+
+Default: 2.
+
+The number spaces for indentation.
 
 ## `insert-entry`
 
@@ -187,9 +195,9 @@ Default: `true`
 
 Default: `true`
 
-These three options options specify which accounts (not) to show in the
-account trees, like on the income statement. Accounts with a non-zero balance
-will always be shown.
+These three options specify which accounts (not) to show in the account trees,
+like on the income statement. Accounts with a non-zero balance will always be
+shown.
 
 ---
 

@@ -1,6 +1,7 @@
 <script>
   import { emptyPosting, Transaction } from "../entries";
-  import { _, fetchAPI } from "../helpers";
+  import { get } from "../api";
+  import { _ } from "../i18n";
   import { payees } from "../stores";
 
   import AutocompleteInput from "../AutocompleteInput.svelte";
@@ -8,9 +9,14 @@
   import EntryMetadata from "./EntryMetadata.svelte";
   import PostingSvelte from "./Posting.svelte";
 
+  /** @type {import("../entries").Transaction} */
   export let entry;
-  let suggestions = null;
+  /** @type {string[] | undefined} */
+  let suggestions;
 
+  /**
+   * @param {import("../entries").Posting} posting
+   */
   function removePosting(posting) {
     entry.postings = entry.postings.filter((p) => p !== posting);
   }
@@ -21,9 +27,9 @@
 
   $: payee = entry.payee;
   $: if (payee) {
-    suggestions = null;
+    suggestions = undefined;
     if ($payees.includes(payee)) {
-      fetchAPI("payee_accounts", { payee }).then((s) => {
+      get("payee_accounts", { payee }).then((s) => {
         suggestions = s;
       });
     }
@@ -34,10 +40,13 @@
     if (entry.narration || !entry.postings.every((p) => !p.account)) {
       return;
     }
-    const data = await fetchAPI("payee_transaction", { payee: entry.payee });
+    const data = await get("payee_transaction", { payee: entry.payee });
     entry = Object.assign(new Transaction(), data, { date: entry.date });
   }
 
+  /**
+   * @param {CustomEvent<{from: number, to: number}>} ev
+   */
   function movePosting(ev) {
     const { from, to } = ev.detail;
     const moved = entry.postings[from];
@@ -65,18 +74,21 @@
     flex-grow: 1;
   }
 
-  label > span:first-child {
+  label > span:first-child,
+  .label > span:first-child {
     display: none;
   }
 
   @media (max-width: 767px) {
-    label > span:first-child {
+    label > span:first-child,
+    .label > span:first-child {
       display: initial;
       width: 100%;
     }
   }
 </style>
 
+<!-- svelte-ignore a11y-label-has-associated-control -->
 <div>
   <div class="flex-row">
     <input type="date" bind:value={entry.date} required />
@@ -104,15 +116,13 @@
       type="button"
       on:click={addPosting}
       title={_('Add posting')}
-      tabindex="-1">
+      tabindex={-1}>
       p
     </button>
   </div>
   <EntryMetadata bind:meta={entry.meta} />
   <div class="flex-row">
-    <label>
-      <span>{_('Postings')}:</span>
-    </label>
+    <span class="label"> <span>{_('Postings')}:</span> </span>
   </div>
   {#each entry.postings as posting, index}
     <PostingSvelte

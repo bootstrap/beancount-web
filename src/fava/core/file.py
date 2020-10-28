@@ -6,8 +6,6 @@ from codecs import decode
 from codecs import encode
 from hashlib import sha256
 from operator import attrgetter
-from typing import Any
-from typing import Dict
 from typing import Generator
 from typing import List
 from typing import Optional
@@ -26,6 +24,7 @@ from fava.core.filters import get_entry_accounts
 from fava.core.misc import align
 from fava.core.module_base import FavaModule
 from fava.helpers import FavaAPIException
+from fava.util import next_key
 
 
 #: The flags to exclude when rendering entries entries.
@@ -131,8 +130,13 @@ class FileModule(FavaModule):
             self.ledger.changed()
             entry: Directive = self.ledger.get_entry(entry_hash)
             key = next_key(basekey, entry.meta)
+            indent = self.ledger.fava_options["indent"]
             insert_metadata_in_file(
-                entry.meta["filename"], entry.meta["lineno"], key, value
+                entry.meta["filename"],
+                entry.meta["lineno"],
+                indent,
+                key,
+                value,
             )
             self.ledger.extensions.run_hook(
                 "after_insert_metadata", entry, key, value
@@ -169,11 +173,13 @@ class FileModule(FavaModule):
             for entry in sorted(entries, key=incomplete_sortkey):
                 insert_options = fava_options["insert-entry"]
                 currency_column = fava_options["currency-column"]
+                indent = fava_options["indent"]
                 fava_options["insert-entry"] = insert_entry(
                     entry,
                     self.ledger.beancount_file_path,
                     insert_options,
                     currency_column,
+                    indent,
                 )
                 self.ledger.extensions.run_hook("after_insert_entry", entry)
 
@@ -188,7 +194,7 @@ class FileModule(FavaModule):
         Yields:
             The entries rendered in Beancount format.
         """
-
+        indent = self.ledger.fava_options["indent"]
         for entry in entries:
             if isinstance(entry, (Balance, Transaction)):
                 if isinstance(entry, Transaction) and entry.flag in EXCL_FLAGS:
@@ -197,7 +203,9 @@ class FileModule(FavaModule):
                     yield get_entry_slice(entry)[0] + "\n"
                 except (KeyError, FileNotFoundError):
                     yield _format_entry(
-                        entry, self.ledger.fava_options["currency-column"]
+                        entry,
+                        self.ledger.fava_options["currency-column"],
+                        indent,
                     )
 
 
@@ -206,43 +214,15 @@ def incomplete_sortkey(entry: Directive) -> Tuple[datetime.date, int]:
     return (entry.date, SORT_ORDER.get(type(entry), 0))
 
 
-def next_key(basekey: str, keys: Dict[str, Any]) -> str:
-    """Returns the next unused key for basekey in the supplied array.
-
-    The first try is `basekey`, followed by `basekey-2`, `basekey-3`, etc
-    until a free one is found.
-    """
-    if basekey not in keys:
-        return basekey
-    i = 2
-    while f"{basekey}-{i}" in keys:
-        i = i + 1
-    return f"{basekey}-{i}"
-
-
-DEFAULT_INDENT = "  "
-
-
-def leading_space(line: str) -> str:
-    """Return a string with the leading whitespace of the given line."""
-    return line[: len(line) - len(line.lstrip())] or DEFAULT_INDENT
-
-
 def insert_metadata_in_file(
-    filename: str, lineno: int, key: str, value: str
+    filename: str, lineno: int, indent: int, key: str, value: str
 ) -> None:
     """Inserts the specified metadata in the file below lineno, taking into
     account the whitespace in front of the line that lineno."""
     with open(filename, "r", encoding="utf-8") as file:
         contents = file.readlines()
 
-    # use the whitespace of the following line but at least two spaces.
-    try:
-        indent = leading_space(contents[lineno]) or DEFAULT_INDENT
-    except IndexError:
-        indent = DEFAULT_INDENT
-
-    contents.insert(lineno, f'{indent}{key}: "{value}"\n')
+    contents.insert(lineno, f'{" " * indent}{key}: "{value}"\n')
 
     with open(filename, "w", encoding="utf-8") as file:
         file.write("".join(contents))
@@ -329,6 +309,7 @@ def insert_entry(
     default_filename: str,
     insert_options: List[InsertEntryOption],
     currency_column: int,
+    indent: int,
 ) -> List[InsertEntryOption]:
     """Insert an entry.
 
@@ -337,6 +318,7 @@ def insert_entry(
         default_filename: The default file to insert into if no option matches.
         insert_options: Insert options.
         currency_column: The column to align currencies at.
+        indent: Number of indent spaces.
 
     Returns:
         A list of updated insert options.
@@ -344,7 +326,7 @@ def insert_entry(
     filename, lineno = find_insert_position(
         entry, insert_options, default_filename
     )
-    content = _format_entry(entry, currency_column)
+    content = _format_entry(entry, currency_column, indent)
 
     with open(filename, "r", encoding="utf-8") as file:
         contents = file.readlines()
@@ -370,13 +352,13 @@ def insert_entry(
     ]
 
 
-def _format_entry(entry: Directive, currency_column: int) -> str:
+def _format_entry(entry: Directive, currency_column: int, indent: int) -> str:
     """Wrapper that strips unnecessary whitespace from format_entry."""
     meta = {
         key: entry.meta[key] for key in entry.meta if not key.startswith("_")
     }
     entry = entry._replace(meta=meta)
-    string = align(format_entry(entry), currency_column)
+    string = align(format_entry(entry, prefix=" " * indent), currency_column)
     string = string.replace("<class 'beancount.core.number.MISSING'>", "")
     return "\n".join((line.rstrip() for line in string.split("\n")))
 

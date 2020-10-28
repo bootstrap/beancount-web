@@ -19,6 +19,8 @@ from typing import Tuple
 from beancount.core.data import Custom
 
 from fava.helpers import BeancountError
+from fava.util.date import FiscalYearEnd
+from fava.util.date import parse_fye_string
 
 
 class OptionError(BeancountError):
@@ -45,9 +47,10 @@ DEFAULTS = {
     "auto-reload": False,
     "conversion": "at_cost",
     "default-file": None,
-    "fiscal-year-end": "12-31",
+    "fiscal-year-end": FiscalYearEnd(12, 31),
     "import-config": None,
     "import-dirs": [],
+    "indent": 2,
     "insert-entry": [],
     "interval": "month",
     "journal-show": [
@@ -84,6 +87,7 @@ BOOL_OPTS = [
 
 INT_OPTS = [
     "currency-column",
+    "indent",
     "sidebar-show-queries",
     "upcoming-events",
     "uptodate-indicator-grey-lookback-days",
@@ -99,7 +103,6 @@ LIST_OPTS = [
 STR_OPTS = [
     "collapse-pattern",
     "conversion",
-    "fiscal-year-end",
     "import-config",
     "interval",
     "language",
@@ -157,6 +160,9 @@ def parse_options(
             processed_value = None
             if key in STR_OPTS:
                 processed_value = value
+            elif key == "fiscal-year-end":
+                processed_value = parse_fye_string(value)
+                assert processed_value, "Invalid 'fiscal-year-end' option."
             elif key in BOOL_OPTS:
                 processed_value = value.lower() == "true"
             elif key in INT_OPTS:

@@ -5,11 +5,15 @@
   import Sunburst from "./Sunburst.svelte";
   import Treemap from "./Treemap.svelte";
 
+  /** @type {import("svelte/store").Writable<string[]>} */
   const context = getContext("chart-currencies");
+
+  /** @type {import(".").HierarchyChart['data']} */
   export let data;
+  /** @type {number} */
   export let width;
 
-  $: currencies = Object.keys(data);
+  $: currencies = [...data.keys()];
   $: currency = $chartCurrency || currencies[0];
   $: context.set(currencies);
 </script>
@@ -18,14 +22,14 @@
   <svg {width}>
     <text x={width / 2} y={80} text-anchor="middle">Chart is empty.</text>
   </svg>
-{:else if $chartMode === 'treemap' && data[currency]}
-  <Treemap data={data[currency]} {currency} {width} />
+{:else if $chartMode === 'treemap' && data.get(currency)}
+  <Treemap data={data.get(currency)} {currency} {width} />
 {:else if $chartMode === 'sunburst'}
-  <svg class="sunburst" {width} height={500}>
-    {#each currencies as currency, i (currency)}
+  <svg {width} height={500}>
+    {#each [...data] as [currency, d], i (currency)}
       <g transform={`translate(${(width * i) / currencies.length},0)`}>
         <Sunburst
-          data={data[currency]}
+          data={d}
           {currency}
           width={width / currencies.length}
           height={500} />

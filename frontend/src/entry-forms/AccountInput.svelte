@@ -1,13 +1,19 @@
 <script>
-  import { _ } from "../helpers";
+  import { _ } from "../i18n";
   import { accounts } from "../stores";
 
   import AutocompleteInput from "../AutocompleteInput.svelte";
 
+  /** @type {string} */
   export let value;
-  export let suggestions = null;
-  export let className = null;
+  /** @type {string[] | undefined} */
+  export let suggestions = undefined;
+  /** @type {string | undefined} */
+  export let className = undefined;
 
+  /**
+   * @param {string} val
+   */
   function checkValidity(val) {
     return !$accounts.length || $accounts.includes(val)
       ? ""

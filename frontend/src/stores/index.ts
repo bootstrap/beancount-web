@@ -1,16 +1,15 @@
 import { derived, writable, Writable } from "svelte/store";
 
-import {
-  object,
-  array,
-  string,
-  boolean,
-  number,
-  union,
-  constant,
-} from "../lib/validation";
 import { derived_array } from "../lib/store";
-import { fetchAPI } from "../helpers";
+import {
+  array,
+  boolean,
+  constant,
+  number,
+  object,
+  string,
+  union,
+} from "../lib/validation";
 
 import { baseURL } from "./url";
 
@@ -37,7 +36,6 @@ export const favaAPIValidator = object({
   incognito: boolean,
   links: array(string),
   options: object({
-    commodities: array(string),
     documents: array(string),
     operating_currency: array(string),
   }),
@@ -67,7 +65,6 @@ export const favaAPI: FavaAPI = {
   pageTitle: "",
   payees: [],
   options: {
-    commodities: [],
     documents: [],
     operating_currency: [],
   },
@@ -98,23 +95,27 @@ export const operating_currency = derived_array(favaAPIStore, (val) =>
 );
 
 /** The sorted array of all used currencies. */
-export const commodities = derived_array(favaAPIStore, (val) =>
-  val.options.commodities.sort()
+export const currencies_sorted = derived_array(currencies, (val) =>
+  [...val].sort()
 );
 
 /** The number of Beancount errors. */
 export const errorCount = writable(0);
-
-export async function fetchErrorCount(): Promise<void> {
-  const errors = await fetchAPI("errors");
-  errorCount.set(number(errors));
-}
 
 favaAPIStore.subscribe((val) => {
   Object.assign(favaAPI, val);
   errorCount.set(favaAPI.errors);
   baseURL.set(favaAPI.baseURL);
 });
+
+/**
+ * Get the list of completions for the given type of entry attribute.
+ */
+export function getCompletion(
+  type: "accounts" | "currencies" | "links" | "tags"
+): string[] {
+  return favaAPI[type];
+}
 
 export function closeOverlay(): void {
   if (window.location.hash) {

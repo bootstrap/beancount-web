@@ -3,7 +3,7 @@
  */
 
 import { format } from "d3-format";
-import { utcFormat, timeFormat } from "d3-time-format";
+import { timeFormat, utcFormat } from "d3-time-format";
 import { derived } from "svelte/store";
 
 import { favaAPIStore, interval } from "./stores";
@@ -11,11 +11,26 @@ import { favaAPIStore, interval } from "./stores";
 let formatter: (num: number) => string;
 let incognito: (num: string) => string;
 
+/**
+ * A number formatting function for a locale.
+ * @param locale - The locale to use.
+ */
+export function localeFormatter(
+  locale: string | null
+): (num: number) => string {
+  if (!locale) {
+    return format(".2f");
+  }
+  const opts = {
+    minimumFractionDigits: 2,
+  };
+  const fmt = new Intl.NumberFormat(locale.replace("_", "-"), opts);
+  return fmt.format.bind(fmt);
+}
+
 favaAPIStore.subscribe((favaAPI) => {
   const { locale } = favaAPI.favaOptions;
-  formatter = locale
-    ? new Intl.NumberFormat(locale.replace("_", "-")).format
-    : (formatter = format(".2f"));
+  formatter = localeFormatter(locale);
   incognito = favaAPI.incognito
     ? (num: string): string => num.replace(/[0-9]/g, "X")
     : (num: string): string => num;
@@ -30,15 +45,26 @@ export function formatPercentage(number: number): string {
   return `${formatterPer(Math.abs(number) * 100)}%`;
 }
 
-const formatterShort = format(".2s");
-export function formatCurrencyShort(number: number): string {
+const formatterShort = format(".3s");
+export function formatCurrencyShort(
+  number: number | { valueOf(): number }
+): string {
   return incognito(formatterShort(number));
 }
 
+type DateFormatter = (date: Date) => string;
+interface DateFormatters {
+  year: DateFormatter;
+  quarter: DateFormatter;
+  month: DateFormatter;
+  week: DateFormatter;
+  day: DateFormatter;
+}
+
 /** Date formatters for human consumption. */
-export const dateFormat = {
+export const dateFormat: DateFormatters = {
   year: utcFormat("%Y"),
-  quarter(date: Date): string {
+  quarter: (date: Date): string => {
     return `${date.getUTCFullYear()}Q${Math.floor(date.getUTCMonth() / 3) + 1}`;
   },
   month: utcFormat("%b %Y"),
@@ -47,9 +73,9 @@ export const dateFormat = {
 };
 
 /** Date formatters for the entry filter form. */
-export const timeFilterDateFormat = {
+export const timeFilterDateFormat: DateFormatters = {
   year: utcFormat("%Y"),
-  quarter(date: Date): string {
+  quarter: (date: Date): string => {
     return `${date.getUTCFullYear()}-Q${
       Math.floor(date.getUTCMonth() / 3) + 1
     }`;

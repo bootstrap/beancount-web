@@ -1,6 +1,7 @@
 <script>
-  import { _ } from "../helpers";
+  import { _ } from "../i18n";
 
+  /** @type {Record<string, unknown>} */
   export let meta;
 
   function addMetadata() {
@@ -13,7 +14,7 @@
   class="muted round"
   type="button"
   on:click={addMetadata}
-  tabindex="-1"
+  tabindex={-1}
   title={_('Add metadata')}>
   m
 </button>

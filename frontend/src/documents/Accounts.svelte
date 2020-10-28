@@ -1,19 +1,29 @@
 <script>
   import { createEventDispatcher } from "svelte";
 
+  import { leaf } from "../lib/account";
+
   import { selectedAccount } from "./stores";
 
+  /** @type {import("../lib/tree").TreeNode<{name: string}>} */
   export let node;
 
   const expanded = true;
   let drag = false;
 
   function click() {
-    $selectedAccount = $selectedAccount === node.fullname ? "" : node.fullname;
+    $selectedAccount = $selectedAccount === node.name ? "" : node.name;
   }
 
+  /**
+   * Start drag if a document filename is dragged onto an account.
+   * @param {DragEvent} event
+   */
   function dragenter(event) {
-    if (event.dataTransfer.types.includes("fava/filename")) {
+    if (
+      event.dataTransfer &&
+      event.dataTransfer.types.includes("fava/filename")
+    ) {
       event.preventDefault();
       drag = true;
     }
@@ -22,10 +32,15 @@
 
   const dispatch = createEventDispatcher();
 
+  /**
+   * Handle a drop and bubble the event.
+   * @param {DragEvent} event
+   */
   function drop(event) {
-    const filename = event.dataTransfer.getData("fava/filename");
+    const filename =
+      event.dataTransfer && event.dataTransfer.getData("fava/filename");
     if (filename) {
-      dispatch("drop", { account: node.fullname, filename });
+      dispatch("drop", { account: node.name, filename });
       drag = false;
     }
   }
@@ -56,21 +71,21 @@
       drag = false;
     }}
     on:drop|preventDefault={drop}
-    title={node.fullname}
+    title={node.name}
     class="droptarget"
-    data-account-name={node.fullname}
+    data-account-name={node.name}
     class:expanded
-    class:selected={$selectedAccount === node.fullname}
+    class:selected={$selectedAccount === node.name}
     class:drag>
-    <span>{node.name}</span>
+    <span>{leaf(node.name)}</span>
   </p>
 {/if}
 
-{#if node.children.size}
+{#if node.children.length}
   <ul class="flex-table" hidden={!expanded}>
-    {#each [...node.children.values()] as child}
+    {#each node.children as child}
       <li>
-        {#if node.children.size}
+        {#if node.children.length}
           <svelte:self on:drop node={child} />
         {:else}node.name{/if}
       </li>

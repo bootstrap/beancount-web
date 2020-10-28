@@ -29,6 +29,7 @@ from beancount.core.data import get_entry
 from beancount.core.data import iter_entry_dates
 from beancount.core.data import Open
 from beancount.core.data import Posting
+from beancount.core.data import Price
 from beancount.core.data import Transaction
 from beancount.core.data import TxnPosting
 from beancount.core.flags import FLAG_UNREALIZED
@@ -276,7 +277,7 @@ class FavaLedger:
         self.root_tree = Tree(self.entries)
 
         self._date_first, self._date_last = get_min_max_dates(
-            self.entries, (Transaction)
+            self.entries, (Transaction, Price)
         )
         if self._date_last:
             self._date_last = self._date_last + datetime.timedelta(1)
@@ -463,8 +464,10 @@ class FavaLedger:
                 for entry in self.all_entries
                 if entry_hash == hash_entry(entry)
             )
-        except StopIteration:
-            raise FavaAPIException(f'No entry found for hash "{entry_hash}"')
+        except StopIteration as exc:
+            raise FavaAPIException(
+                f'No entry found for hash "{entry_hash}"'
+            ) from exc
 
     def context(self, entry_hash: str) -> Tuple[Directive, Any, str, str]:
         """Context for an entry.
@@ -537,16 +540,6 @@ class FavaLedger:
             return None
 
         return get_entry(last)
-
-    @property
-    def postings(self) -> List[Posting]:
-        """All postings contained in some transaction."""
-        return [
-            posting
-            for entry in self.entries
-            if isinstance(entry, Transaction)
-            for posting in entry.postings
-        ]
 
     def statement_path(self, entry_hash: str, metadata_key: str) -> str:
         """Returns the path for a statement found in the specified entry."""

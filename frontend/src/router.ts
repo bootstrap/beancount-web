@@ -6,17 +6,16 @@
  */
 
 import { Writable } from "svelte/store";
+
+import { delegate, Events } from "./lib/events";
 import { fetch, handleText } from "./lib/fetch";
-import { Events, delegate } from "./lib/events";
 import { notify } from "./notifications";
-import { urlHash, conversion, interval, favaAPI } from "./stores";
-import { urlSyncedParams } from "./stores/url";
-import { account_filter, fql_filter, time_filter } from "./stores/filters";
+import { conversion, favaAPI, interval, urlHash } from "./stores";
 import { showCharts } from "./stores/chart";
+import { account_filter, fql_filter, time_filter } from "./stores/filters";
+import { urlSyncedParams } from "./stores/url";
 
-type RouterEvents = "page-loaded" | "before-page-loaded";
-
-class Router extends Events<RouterEvents> {
+class Router extends Events<"page-loaded"> {
   /** The URL hash. */
   hash: string;
 
@@ -135,7 +134,6 @@ class Router extends Events<RouterEvents> {
       this.updateState();
       const article = document.querySelector("article");
       if (article) {
-        this.trigger("before-page-loaded");
         article.innerHTML = content;
       }
       this.trigger("page-loaded");

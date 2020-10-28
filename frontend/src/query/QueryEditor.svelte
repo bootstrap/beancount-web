@@ -3,9 +3,12 @@
   import { createEventDispatcher } from "svelte";
 
   import { enableAutomaticCompletions } from "../editor";
-  import { _ } from "../helpers";
+  import { _ } from "../i18n";
+  import { keyboardShortcut } from "../keyboard-shortcuts";
 
+  /** @type {string} */
   export let value;
+  /** @type {CodeMirror.Editor} */
   let editor;
   const dispatch = createEventDispatcher();
 
@@ -13,6 +16,9 @@
     editor.setValue(value);
   }
 
+  /**
+   * @param {HTMLElement} form
+   */
   function queryEditor(form) {
     const queryOptions = {
       value,
@@ -61,5 +67,7 @@
 </style>
 
 <form use:queryEditor on:submit|preventDefault={() => dispatch('submit')}>
-  <button type="submit" data-key="Ctrl/Cmd+Enter">{_('Submit')}</button>
+  <button
+    type="submit"
+    use:keyboardShortcut={'Control+Enter'}>{_('Submit')}</button>
 </form>

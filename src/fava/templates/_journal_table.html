@@ -46,6 +46,11 @@
 {% endif %}
 
 {% macro account_link(name) %}<a class="account-link" href="{{ url_for('account', name=name) }}">{{ name }}</a>{% endmacro %}
+{% macro render_metadata_indicators(metadata) -%}
+{% for key, value in metadata.items() %}
+<span class="metadata-indicator" title="{{ key }}: {{ value }}">{{ key[:2] }}</span>
+{% endfor %}
+{%- endmacro %}
 {% macro render_metadata(metadata, entry_hash=None) -%}
 {% if metadata %}
 <dl class="metadata">
@@ -72,15 +77,15 @@
 {% autoescape false %}
 <form id="entry-filters" class="flex-row entry-filters">
   {% for type in entry_types %}
-  <button type="button" title="Toggle {{ type|capitalize }} entries" data-type="{{ type }}" data-key="{{ keyboard_shortcuts[type] }}"{% if type not in journal_show %} class="inactive"{% endif %}>{{ type|capitalize }}</button>
+  <button type="button" title="Toggle {{ type|capitalize }} entries" data-type="{{ type }}" data-keyboard-shortcut="{{ keyboard_shortcuts[type] }}"{% if type not in journal_show %} class="inactive"{% endif %}>{{ type|capitalize }}</button>
   {% if type in sub_types.keys() %}
   {% for sub_type in sub_types[type] %}
-  <button type="button" title="{{ sub_type.2 }}" data-type="{{ sub_type.0 }}" data-key="{{ keyboard_shortcuts[sub_type.0] }}" class="small {{ type }}-toggle{% if sub_type.0 not in journal_show or type not in journal_show %} inactive{% endif %}">{{ sub_type.1 }}</button>
+  <button type="button" title="{{ sub_type.2 }}" data-type="{{ sub_type.0 }}" data-keyboard-shortcut="{{ keyboard_shortcuts[sub_type.0] }}" class="small {{ type }}-toggle{% if sub_type.0 not in journal_show or type not in journal_show %} inactive{% endif %}">{{ sub_type.1 }}</button>
   {% endfor %}
   {% endif %}
   {% endfor %}
-  <button type="button" title="Toggle metadata" data-type="metadata" data-key="m"{% if 'metadata' not in journal_show %} class="inactive"{% endif %}>{{ _('Metadata') }}</button>
-  <button type="button" title="Toggle postings" data-type="postings" data-key="p"{% if 'postings' not in journal_show %} class="inactive"{% endif %}>{{ _('Postings') }}</button>
+  <button type="button" title="Toggle metadata" data-type="metadata" data-keyboard-shortcut="m"{% if 'metadata' not in journal_show %} class="inactive"{% endif %}>{{ _('Metadata') }}</button>
+  <button type="button" title="Toggle postings" data-type="postings" data-keyboard-shortcut="p"{% if 'postings' not in journal_show %} class="inactive"{% endif %}>{{ _('Postings') }}</button>
 </form>
 <ol is="fava-journal" class="flex-table journal{% for type in journal_show %} show-{{ type }}{% endfor %}">
     <li class="head">
@@ -142,11 +147,10 @@
         {% endif %}
         </span>
         <span class="indicators">
-          {% for key, value in metadata.items() %}
-          <span class="metadata-indicator" title="{{ key }}: {{ value }}">{{ key[:2] }}</span>
-          {% endfor %}
+          {{ render_metadata_indicators(metadata) }}
           {% for posting in entry.postings %}
           <span{% if posting.flag %} class="{{ posting.flag|flag_to_type }}"{% endif %}></span>
+          {{ render_metadata_indicators(posting.meta|remove_keys(['__automatic__', 'lineno', 'filename'])) }}
           {% endfor %}
         </span>
         {% if type == 'balance' %}

@@ -1,23 +1,26 @@
 <script>
   import { onMount } from "svelte";
 
-  import { put } from "../api";
-  import { keys } from "../keyboard-shortcuts";
+  import { put, get } from "../api";
+  import { bindKey } from "../keyboard-shortcuts";
   import { notify } from "../notifications";
   import router from "../router";
-  import { fetchErrorCount } from "../stores";
+  import { errorCount } from "../stores";
   import { CodeMirror, sourceEditorOptions, initSourceEditor } from "../editor";
 
   import EditorMenu from "./EditorMenu.svelte";
   import SaveButton from "./SaveButton.svelte";
 
+  /** @type {{source: string, file_path: string, sha256sum: string, sources: string[]}} */
   export let data;
+  /** @type {CodeMirror.Editor | undefined} */
   let editor;
   let changed = false;
 
   let value = "";
   let file_path = "";
   let sha256sum = "";
+  /** @type {string[]} */
   let sources = [];
 
   let saving = false;
@@ -41,7 +44,7 @@
       changed = false;
       editor.focus();
       editor.getDoc().markClean();
-      fetchErrorCount();
+      errorCount.set(await get("errors"));
     } catch (error) {
       notify(error, "error");
     } finally {
@@ -61,27 +64,24 @@
     file_path = data.file_path;
     sources = data.sources;
 
-    const unbind = [];
     // keybindings when the focus is outside the editor
-    ["Control+s", "Meta+s"].forEach((key) => {
-      unbind.push(
-        keys.bind(key, (event) => {
+    const unbind = [
+      ...["Control+s", "Meta+s"].map((key) =>
+        bindKey(key, (event) => {
           event.preventDefault();
           save();
         })
-      );
-    });
-
-    ["Control+d", "Meta+d"].forEach((key) => {
-      unbind.push(
-        keys.bind(key, (event) => {
+      ),
+      ...["Control+d", "Meta+d"].map((key) =>
+        bindKey(key, (event) => {
           event.preventDefault();
           if (editor) {
             editor.execCommand("favaFormat");
           }
         })
-      );
-    });
+      ),
+    ];
+
     router.interruptHandlers.add(checkEditorChanges);
 
     return () => {
@@ -90,6 +90,9 @@
     };
   });
 
+  /**
+   * @param {HTMLElement} div
+   */
   function sourceEditor(div) {
     value = data.source;
     const options = {
@@ -105,6 +108,9 @@
     });
   }
 
+  /**
+   * @param {CustomEvent<string>} ev
+   */
   function command(ev) {
     if (editor) {
       editor.execCommand(ev.detail);

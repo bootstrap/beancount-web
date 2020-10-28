@@ -1,9 +1,12 @@
 <script>
   import { createEventDispatcher } from "svelte";
 
-  import { _, urlFor } from "../helpers";
+  import { _ } from "../i18n";
+  import { urlFor } from "../helpers";
 
+  /** @type {string[]} */
   export let sources;
+  /** @type {string} */
   export let file_path;
 
   const dispatch = createEventDispatcher();
@@ -72,6 +75,7 @@
   <ul class="dropdown">
     <li>
       {_('File')}&nbsp;▾
+
       <ul>
         {#each sources as source}
           <li class:selected={source === file_path}>
@@ -82,26 +86,15 @@
     </li>
     <li>
       {_('Edit')}&nbsp;▾
+
       <ul>
         <li on:click={() => dispatch('command', 'favaFormat')}>
           {_('Align Amounts')}
-          <span>
-            <kbd>Ctrl</kbd>
-            /
-            <kbd>Cmd</kbd>
-            +
-            <kbd>d</kbd>
-          </span>
+          <span> <kbd>Ctrl</kbd> / <kbd>Cmd</kbd> + <kbd>d</kbd> </span>
         </li>
         <li on:click={() => dispatch('command', 'favaToggleComment')}>
           {_('Toggle Comment (selection)')}
-          <span>
-            <kbd>Ctrl</kbd>
-            /
-            <kbd>Cmd</kbd>
-            +
-            <kbd>y</kbd>
-          </span>
+          <span> <kbd>Ctrl</kbd> / <kbd>Cmd</kbd> + <kbd>y</kbd> </span>
         </li>
         <li on:click={() => dispatch('command', 'unfoldAll')}>
           {_('Open all folds')}
